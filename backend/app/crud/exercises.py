@@ -61,6 +61,14 @@ def get_exercise(database: Session, exercise_id: str) -> Exercise | None:
     return database.get(Exercise, exercise_id)
 
 
+def save_exercise(database: Session, exercise: Exercise) -> Exercise:
+    """Commit pending changes to an exercise and return it."""
+
+    database.add(exercise)
+    database.commit()
+    return exercise
+
+
 def delete_exercise(database: Session, exercise: Exercise) -> None:
     """Delete an exercise and its database-owned children."""
 

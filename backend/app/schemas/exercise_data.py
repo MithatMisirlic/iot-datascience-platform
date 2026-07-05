@@ -1,9 +1,9 @@
 """Recorded and processed exercise-data schemas from the API contract."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
 
@@ -72,3 +72,14 @@ class ExerciseData(BaseModel):
     soundPressure: SoundPressure
     footSpeed: FootSpeed
     aggregates: Aggregates
+
+    @field_validator("startedAt", "endedAt", mode="after")
+    @classmethod
+    def normalize_utc(cls, value: datetime | None) -> datetime | None:
+        """Represent SQLite timestamps explicitly as UTC."""
+
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)

@@ -93,8 +93,8 @@ def test_experiment_and_exercise_crud_lifecycle(client: TestClient) -> None:
     assert client.get(f"/exercises/{cascade_exercise_id}").status_code == 404
 
 
-def test_contract_errors_and_unimplemented_routes(client: TestClient) -> None:
-    """Verify validation, missing parents, and deferred endpoint behavior."""
+def test_contract_errors(client: TestClient) -> None:
+    """Verify validation errors and missing parent behavior."""
 
     response = client.post("/experiments", json={"age": "invalid"})
     assert response.status_code == 400
@@ -111,10 +111,6 @@ def test_contract_errors_and_unimplemented_routes(client: TestClient) -> None:
     response = client.get("/experiments", params={"page": 0})
     assert response.status_code == 400
     assert response.json() == {"error": "The request is invalid."}
-
-    assert client.post("/exercises/missing/recording/start").status_code == 501
-    assert client.get("/exercises/missing/data").status_code == 501
-
 
 def test_experiment_and_exercise_pagination(client: TestClient) -> None:
     """Verify page offsets, limits, and total counts for both resources."""

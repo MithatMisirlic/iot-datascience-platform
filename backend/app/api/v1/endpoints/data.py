@@ -5,10 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Path, status
 
 from backend.app.api.responses import NOT_FOUND
-from backend.app.api.v1.endpoints._placeholder import not_implemented
 from backend.app.dependencies import DatabaseSession
 from backend.app.schemas.common import Error
 from backend.app.schemas.exercise_data import ExerciseData
+from backend.app.services import exercise_data_service
 
 
 router = APIRouter(tags=["Data"])
@@ -25,14 +25,13 @@ router = APIRouter(tags=["Data"])
         }
     },
 )
-async def get_exercise_data(
+def get_exercise_data(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> ExerciseData:
-    """Get exercise data placeholder."""
+    """Return processed data for an exercise."""
 
-    del exerciseId, database
-    not_implemented()
+    return exercise_data_service.get_exercise_data(database, exerciseId)
 
 
 @router.delete(
@@ -45,11 +44,11 @@ async def get_exercise_data(
     ),
     responses=NOT_FOUND,
 )
-async def clear_exercise_data(
+def clear_exercise_data(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> None:
-    """Clear exercise data placeholder."""
+    """Clear exercise data and reset its recording state."""
 
-    del exerciseId, database
-    not_implemented()
+    exercise_data_service.clear_exercise_data(database, exerciseId)
+    return None

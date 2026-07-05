@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Path
 
 from backend.app.api.responses import CONFLICT, NOT_FOUND
-from backend.app.api.v1.endpoints._placeholder import not_implemented
 from backend.app.dependencies import DatabaseSession
 from backend.app.schemas.exercise import Exercise
+from backend.app.services import recording_service
 
 
 router = APIRouter(tags=["Recording"])
@@ -23,14 +23,15 @@ router = APIRouter(tags=["Recording"])
     ),
     responses={**NOT_FOUND, **CONFLICT},
 )
-async def start_recording(
+def start_recording(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> Exercise:
-    """Start recording placeholder."""
+    """Start recording for an eligible exercise."""
 
-    del exerciseId, database
-    not_implemented()
+    return Exercise.model_validate(
+        recording_service.start_recording(database, exerciseId)
+    )
 
 
 @router.post(
@@ -39,11 +40,12 @@ async def start_recording(
     summary="Stop data recording for an exercise",
     responses={**NOT_FOUND, **CONFLICT},
 )
-async def stop_recording(
+def stop_recording(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> Exercise:
-    """Stop recording placeholder."""
+    """Stop an active exercise recording."""
 
-    del exerciseId, database
-    not_implemented()
+    return Exercise.model_validate(
+        recording_service.stop_recording(database, exerciseId)
+    )

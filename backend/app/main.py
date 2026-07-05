@@ -16,6 +16,7 @@ from backend.app.api.v1.router import api_router
 from backend.app.db.init_db import create_tables
 from backend.app.db.session import engine
 from backend.app.schemas.exercise_data import SignalFloat
+from shared.errors import ResourceConflictError, ResourceNotFoundError
 
 
 API_DESCRIPTION = (
@@ -92,6 +93,28 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(ResourceNotFoundError)
+async def resource_not_found_error(
+    request: Request,
+    exception: ResourceNotFoundError,
+) -> JSONResponse:
+    """Map application not-found errors to the contract error schema."""
+
+    del request
+    return JSONResponse(status_code=404, content={"error": str(exception)})
+
+
+@app.exception_handler(ResourceConflictError)
+async def resource_conflict_error(
+    request: Request,
+    exception: ResourceConflictError,
+) -> JSONResponse:
+    """Map application state conflicts to the contract error schema."""
+
+    del request
+    return JSONResponse(status_code=409, content={"error": str(exception)})
 
 
 @app.exception_handler(StarletteHTTPException)

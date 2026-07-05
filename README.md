@@ -130,7 +130,7 @@ The sample environment uses local-only addresses and SQLite. It contains no cred
 
 ## Backend
 
-The `backend` package contains the FastAPI application, Pydantic contract schemas, SQLAlchemy models, database dependencies, and persistence operations. Experiment and exercise CRUD endpoints are implemented; recording-control and exercise-data endpoints remain explicit `501 Not Implemented` placeholders.
+The `backend` package contains the FastAPI application, Pydantic contract schemas, SQLAlchemy models, database dependencies, and persistence operations. Experiment and exercise CRUD, recording lifecycle, and stored exercise-data retrieval/clearing are implemented. Sensor capture, uploads, and data processing are not implemented yet.
 
 Start the development server from the repository root:
 
@@ -164,8 +164,8 @@ PostgreSQL support is planned for remote deployment. Application code should dep
 
 ## Roadmap
 
-- Implement recording-control behavior behind the existing contract endpoints.
-- Implement exercise-data retrieval and clearing.
+- Connect recording lifecycle operations to the Raspberry Pi client.
+- Populate processed exercise results through the data pipeline.
 - Implement local Pi sensor recording and resilient HTTP uploads.
 - Add processing workflows and feature extraction.
 - Build the Streamlit dashboard and Plotly visualizations.

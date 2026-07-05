@@ -67,3 +67,15 @@ def client() -> Generator[TestClient, None, None]:
         yield test_client
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture
+def database_session(client: TestClient) -> Generator[Session, None, None]:
+    """Provide direct database access for internal persistence assertions."""
+
+    del client
+    database = TestSessionLocal()
+    try:
+        yield database
+    finally:
+        database.close()
