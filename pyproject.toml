@@ -1,0 +1,9 @@
+[project]
+name = "experiment-platform"
+version = "0.1.0"
+description = "IoT experiment collection, processing, and visualization platform"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
