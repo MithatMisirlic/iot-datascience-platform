@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.api.v1.router import api_router
 from backend.app.db.init_db import create_tables
@@ -91,6 +92,22 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def contract_http_error(
+    request: Request,
+    exception: StarletteHTTPException,
+) -> JSONResponse:
+    """Use the contract error schema for documented client errors."""
+
+    del request
+    key = "error" if exception.status_code in {400, 404, 409} else "detail"
+    return JSONResponse(
+        status_code=exception.status_code,
+        content={key: str(exception.detail)},
+        headers=exception.headers,
+    )
 
 
 @app.exception_handler(RequestValidationError)

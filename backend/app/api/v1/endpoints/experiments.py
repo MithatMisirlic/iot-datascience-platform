@@ -2,10 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Path, Query, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from backend.app.api.responses import BAD_REQUEST, NOT_FOUND
-from backend.app.api.v1.endpoints._placeholder import not_implemented
+from backend.app.crud import experiments as experiment_crud
 from backend.app.dependencies import DatabaseSession
 from backend.app.schemas.experiment import Experiment, ExperimentInput, ExperimentPage
 
@@ -21,14 +21,15 @@ router = APIRouter(tags=["Experiments"])
     description="Creates a new experiment. The server sets `id` and `createdAt`.",
     responses=BAD_REQUEST,
 )
-async def create_experiment(
+def create_experiment(
     payload: Annotated[ExperimentInput, Body()],
     database: DatabaseSession,
 ) -> Experiment:
-    """Create an experiment placeholder."""
+    """Create and persist an experiment."""
 
-    del payload, database
-    not_implemented()
+    return Experiment.model_validate(
+        experiment_crud.create_experiment(database, payload)
+    )
 
 
 @router.get(
@@ -36,15 +37,20 @@ async def create_experiment(
     response_model=ExperimentPage,
     summary="List experiments (paginated)",
 )
-async def list_experiments(
+def list_experiments(
     database: DatabaseSession,
     page: Annotated[int, Query(ge=1)] = 1,
     pageSize: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ExperimentPage:
-    """List experiments placeholder."""
+    """List a page of experiments."""
 
-    del database, page, pageSize
-    not_implemented()
+    items, total = experiment_crud.list_experiments(database, page, pageSize)
+    return ExperimentPage(
+        items=[Experiment.model_validate(item) for item in items],
+        page=page,
+        pageSize=pageSize,
+        total=total,
+    )
 
 
 @router.get(
@@ -53,14 +59,16 @@ async def list_experiments(
     summary="Get an experiment by id",
     responses=NOT_FOUND,
 )
-async def get_experiment(
+def get_experiment(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     database: DatabaseSession,
 ) -> Experiment:
-    """Get an experiment placeholder."""
+    """Get an experiment by id."""
 
-    del experimentId, database
-    not_implemented()
+    experiment = experiment_crud.get_experiment(database, experimentId)
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found.")
+    return Experiment.model_validate(experiment)
 
 
 @router.patch(
@@ -70,15 +78,19 @@ async def get_experiment(
     description="Partially updates an experiment. Only provided fields are changed.",
     responses={**BAD_REQUEST, **NOT_FOUND},
 )
-async def update_experiment(
+def update_experiment(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     payload: Annotated[ExperimentInput, Body()],
     database: DatabaseSession,
 ) -> Experiment:
-    """Update an experiment placeholder."""
+    """Partially update an experiment."""
 
-    del experimentId, payload, database
-    not_implemented()
+    experiment = experiment_crud.get_experiment(database, experimentId)
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found.")
+    return Experiment.model_validate(
+        experiment_crud.update_experiment(database, experiment, payload)
+    )
 
 
 @router.delete(
@@ -92,11 +104,14 @@ async def update_experiment(
     ),
     responses=NOT_FOUND,
 )
-async def delete_experiment(
+def delete_experiment(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     database: DatabaseSession,
 ) -> None:
-    """Delete an experiment placeholder."""
+    """Delete an experiment and all related records."""
 
-    del experimentId, database
-    not_implemented()
+    experiment = experiment_crud.get_experiment(database, experimentId)
+    if experiment is None:
+        raise HTTPException(status_code=404, detail="Experiment not found.")
+    experiment_crud.delete_experiment(database, experiment)
+    return None

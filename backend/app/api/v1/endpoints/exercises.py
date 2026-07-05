@@ -2,10 +2,11 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Path, Query, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from backend.app.api.responses import BAD_REQUEST, NOT_FOUND
-from backend.app.api.v1.endpoints._placeholder import not_implemented
+from backend.app.crud import exercises as exercise_crud
+from backend.app.crud import experiments as experiment_crud
 from backend.app.dependencies import DatabaseSession
 from backend.app.schemas.exercise import Exercise, ExerciseInput, ExercisePage
 
@@ -21,15 +22,18 @@ router = APIRouter(tags=["Exercises"])
     description="Creates a new exercise. The server sets `id` and `createdAt`.",
     responses={**BAD_REQUEST, **NOT_FOUND},
 )
-async def create_exercise(
+def create_exercise(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     payload: Annotated[ExerciseInput, Body()],
     database: DatabaseSession,
 ) -> Exercise:
-    """Create an exercise placeholder."""
+    """Create an exercise under an existing experiment."""
 
-    del experimentId, payload, database
-    not_implemented()
+    if experiment_crud.get_experiment(database, experimentId) is None:
+        raise HTTPException(status_code=404, detail="Experiment not found.")
+    return Exercise.model_validate(
+        exercise_crud.create_exercise(database, experimentId, payload)
+    )
 
 
 @router.get(
@@ -38,14 +42,18 @@ async def create_exercise(
     summary="List all exercises of an experiment",
     responses=NOT_FOUND,
 )
-async def list_experiment_exercises(
+def list_experiment_exercises(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     database: DatabaseSession,
 ) -> list[Exercise]:
-    """List one experiment's exercises placeholder."""
+    """List all exercises belonging to an experiment."""
 
-    del experimentId, database
-    not_implemented()
+    if experiment_crud.get_experiment(database, experimentId) is None:
+        raise HTTPException(status_code=404, detail="Experiment not found.")
+    return [
+        Exercise.model_validate(item)
+        for item in exercise_crud.list_experiment_exercises(database, experimentId)
+    ]
 
 
 @router.get(
@@ -53,15 +61,20 @@ async def list_experiment_exercises(
     response_model=ExercisePage,
     summary="List all exercises (across experiments, paginated)",
 )
-async def list_exercises(
+def list_exercises(
     database: DatabaseSession,
     page: Annotated[int, Query(ge=1)] = 1,
     pageSize: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> ExercisePage:
-    """List all exercises placeholder."""
+    """List a page of exercises across all experiments."""
 
-    del database, page, pageSize
-    not_implemented()
+    items, total = exercise_crud.list_exercises(database, page, pageSize)
+    return ExercisePage(
+        items=[Exercise.model_validate(item) for item in items],
+        page=page,
+        pageSize=pageSize,
+        total=total,
+    )
 
 
 @router.get(
@@ -70,14 +83,16 @@ async def list_exercises(
     summary="Get an exercise by id",
     responses=NOT_FOUND,
 )
-async def get_exercise(
+def get_exercise(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> Exercise:
-    """Get an exercise placeholder."""
+    """Get an exercise by id."""
 
-    del exerciseId, database
-    not_implemented()
+    exercise = exercise_crud.get_exercise(database, exerciseId)
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Exercise not found.")
+    return Exercise.model_validate(exercise)
 
 
 @router.delete(
@@ -87,11 +102,14 @@ async def get_exercise(
     summary="Delete an exercise completely",
     responses=NOT_FOUND,
 )
-async def delete_exercise(
+def delete_exercise(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
 ) -> None:
-    """Delete an exercise placeholder."""
+    """Delete an exercise and its related records."""
 
-    del exerciseId, database
-    not_implemented()
+    exercise = exercise_crud.get_exercise(database, exerciseId)
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Exercise not found.")
+    exercise_crud.delete_exercise(database, exercise)
+    return None

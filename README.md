@@ -106,10 +106,16 @@ Activate it on Linux or macOS:
 source .venv/bin/activate
 ```
 
-Dependency versions will be added to `requirements.txt` when implementation begins. The future installation command will be:
+Install runtime dependencies:
 
 ```bash
 python -m pip install -r requirements.txt
+```
+
+Install test dependencies for local development:
+
+```bash
+python -m pip install -r requirements-dev.txt
 ```
 
 ## Development Setup
@@ -118,15 +124,21 @@ python -m pip install -r requirements.txt
 2. Keep local secrets and machine-specific values in `.env`; it is ignored by Git.
 3. Configure the repository root as the PyCharm project directory.
 4. Select the `.venv` interpreter in PyCharm.
-5. Run tests from the repository root with `python -m pytest` once test dependencies are added.
+5. Run tests from the repository root with `python -m pytest`.
 
 The sample environment uses local-only addresses and SQLite. It contains no credentials or private keys.
 
 ## Backend
 
-The `backend` package is reserved for the FastAPI application. It separates versioned API endpoints, Pydantic schemas, application services, CRUD operations, and SQLAlchemy infrastructure. FastAPI will generate the OpenAPI specification when the application is implemented.
+The `backend` package contains the FastAPI application, Pydantic contract schemas, SQLAlchemy models, database dependencies, and persistence operations. Experiment and exercise CRUD endpoints are implemented; recording-control and exercise-data endpoints remain explicit `501 Not Implemented` placeholders.
 
-Planned API resources are experiments, participants, recording sessions, sensor uploads, and processed results.
+Start the development server from the repository root:
+
+```bash
+uvicorn backend.app.main:app --reload --port 3000
+```
+
+Swagger UI is available at `http://localhost:3000/docs`.
 
 ## Frontend
 
@@ -146,16 +158,14 @@ The `pipeline` package provides sensor-specific processing and reusable feature 
 
 ## Database
 
-Development uses SQLite through SQLAlchemy. Database access belongs exclusively to the backend persistence layer. Alembic is reserved for schema migrations once models are introduced.
+Development uses SQLite through SQLAlchemy. Database access belongs exclusively to the backend persistence layer. Alembic is reserved for migrations as the implemented schema evolves.
 
 PostgreSQL support is planned for remote deployment. Application code should depend on SQLAlchemy sessions rather than SQLite-specific behavior to preserve portability.
 
 ## Roadmap
 
-- Define pinned development and runtime dependencies.
-- Implement configuration, logging, and database session management.
-- Add domain models, Pydantic schemas, CRUD operations, and services.
-- Expose versioned REST endpoints and OpenAPI documentation.
+- Implement recording-control behavior behind the existing contract endpoints.
+- Implement exercise-data retrieval and clearing.
 - Implement local Pi sensor recording and resilient HTTP uploads.
 - Add processing workflows and feature extraction.
 - Build the Streamlit dashboard and Plotly visualizations.
