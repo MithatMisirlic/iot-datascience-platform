@@ -1,9 +1,9 @@
 """Experiment request and response schemas from the API contract."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from pydantic.experimental.missing_sentinel import MISSING
 
 from backend.app.schemas.common import Properties
@@ -26,6 +26,15 @@ class Experiment(ExperimentInput):
 
     id: str
     createdAt: datetime
+
+    @field_validator("createdAt", mode="after")
+    @classmethod
+    def normalize_created_at(cls, value: datetime) -> datetime:
+        """Represent SQLite creation timestamps explicitly as UTC."""
+
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     @model_validator(mode="before")
     @classmethod

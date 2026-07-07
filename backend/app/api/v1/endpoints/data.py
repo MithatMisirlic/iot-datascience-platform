@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path, status
 
 from backend.app.api.responses import NOT_FOUND
-from backend.app.dependencies import DatabaseSession
+from backend.app.dependencies import ArtifactStorageDependency, DatabaseSession
 from backend.app.schemas.common import Error
 from backend.app.schemas.exercise_data import ExerciseData
 from backend.app.services import exercise_data_service
@@ -47,8 +47,9 @@ def get_exercise_data(
 def clear_exercise_data(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
+    storage: ArtifactStorageDependency,
 ) -> None:
     """Clear exercise data and reset its recording state."""
 
-    exercise_data_service.clear_exercise_data(database, exerciseId)
+    exercise_data_service.clear_exercise_data(database, exerciseId, storage)
     return None

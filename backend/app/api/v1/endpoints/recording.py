@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Path
 
 from backend.app.api.responses import CONFLICT, NOT_FOUND
-from backend.app.dependencies import DatabaseSession
+from backend.app.dependencies import DatabaseSession, RecordingBackendDependency
 from backend.app.schemas.exercise import Exercise
 from backend.app.services import recording_service
 
@@ -26,11 +26,12 @@ router = APIRouter(tags=["Recording"])
 def start_recording(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
+    recording_backend: RecordingBackendDependency,
 ) -> Exercise:
     """Start recording for an eligible exercise."""
 
     return Exercise.model_validate(
-        recording_service.start_recording(database, exerciseId)
+        recording_service.start_recording(database, exerciseId, recording_backend)
     )
 
 
@@ -43,9 +44,10 @@ def start_recording(
 def stop_recording(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
+    recording_backend: RecordingBackendDependency,
 ) -> Exercise:
     """Stop an active exercise recording."""
 
     return Exercise.model_validate(
-        recording_service.stop_recording(database, exerciseId)
+        recording_service.stop_recording(database, exerciseId, recording_backend)
     )

@@ -2,13 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, Path, Query, status
 
 from backend.app.api.responses import BAD_REQUEST, NOT_FOUND
-from backend.app.crud import exercises as exercise_crud
-from backend.app.crud import experiments as experiment_crud
-from backend.app.dependencies import DatabaseSession
+from backend.app.dependencies import ArtifactStorageDependency, DatabaseSession
 from backend.app.schemas.exercise import Exercise, ExerciseInput, ExercisePage
+from backend.app.services import exercise_service
 
 
 router = APIRouter(tags=["Exercises"])
@@ -29,10 +28,8 @@ def create_exercise(
 ) -> Exercise:
     """Create an exercise under an existing experiment."""
 
-    if experiment_crud.get_experiment(database, experimentId) is None:
-        raise HTTPException(status_code=404, detail="Experiment not found.")
     return Exercise.model_validate(
-        exercise_crud.create_exercise(database, experimentId, payload)
+        exercise_service.create_exercise(database, experimentId, payload)
     )
 
 
@@ -48,11 +45,9 @@ def list_experiment_exercises(
 ) -> list[Exercise]:
     """List all exercises belonging to an experiment."""
 
-    if experiment_crud.get_experiment(database, experimentId) is None:
-        raise HTTPException(status_code=404, detail="Experiment not found.")
     return [
         Exercise.model_validate(item)
-        for item in exercise_crud.list_experiment_exercises(database, experimentId)
+        for item in exercise_service.list_experiment_exercises(database, experimentId)
     ]
 
 
@@ -68,7 +63,7 @@ def list_exercises(
 ) -> ExercisePage:
     """List a page of exercises across all experiments."""
 
-    items, total = exercise_crud.list_exercises(database, page, pageSize)
+    items, total = exercise_service.list_exercises(database, page, pageSize)
     return ExercisePage(
         items=[Exercise.model_validate(item) for item in items],
         page=page,
@@ -89,10 +84,9 @@ def get_exercise(
 ) -> Exercise:
     """Get an exercise by id."""
 
-    exercise = exercise_crud.get_exercise(database, exerciseId)
-    if exercise is None:
-        raise HTTPException(status_code=404, detail="Exercise not found.")
-    return Exercise.model_validate(exercise)
+    return Exercise.model_validate(
+        exercise_service.get_exercise(database, exerciseId)
+    )
 
 
 @router.delete(
@@ -105,11 +99,9 @@ def get_exercise(
 def delete_exercise(
     exerciseId: Annotated[str, Path(description="The id of the exercise.")],
     database: DatabaseSession,
+    storage: ArtifactStorageDependency,
 ) -> None:
     """Delete an exercise and its related records."""
 
-    exercise = exercise_crud.get_exercise(database, exerciseId)
-    if exercise is None:
-        raise HTTPException(status_code=404, detail="Exercise not found.")
-    exercise_crud.delete_exercise(database, exercise)
+    exercise_service.delete_exercise(database, exerciseId, storage)
     return None

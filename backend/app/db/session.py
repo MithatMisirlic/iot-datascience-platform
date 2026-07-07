@@ -1,6 +1,5 @@
 """SQLAlchemy engine and session factory configuration."""
 
-import os
 import sqlite3
 from typing import Any
 
@@ -8,8 +7,10 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from backend.app.core.config import settings
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./experiment_platform.db")
+
+DATABASE_URL = settings.database_url
 
 
 def _engine_options(database_url: str) -> dict[str, Any]:

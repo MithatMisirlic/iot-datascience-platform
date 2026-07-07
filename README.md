@@ -2,7 +2,7 @@
 
 A modular platform for collecting, processing, storing, and visualizing multimodal IoT experiment data. The project combines a Raspberry Pi sensor client, a FastAPI backend, a reusable data-processing pipeline, and a Streamlit dashboard.
 
-This repository currently contains the approved architecture and development setup only. Application behavior will be implemented incrementally.
+The backend currently implements the approved OpenAPI contract, SQLite persistence, recording lifecycle state, local artifact storage scaffolding, and deferred processing orchestration. Hardware capture, public uploads, and real processing remain intentionally unavailable.
 
 ## Project Overview
 
@@ -120,17 +120,34 @@ python -m pip install -r requirements-dev.txt
 
 ## Development Setup
 
-1. Copy `.env.example` to `.env`.
+1. Copy `.env.example` to `.env` (`Copy-Item .env.example .env` on PowerShell).
 2. Keep local secrets and machine-specific values in `.env`; it is ignored by Git.
 3. Configure the repository root as the PyCharm project directory.
 4. Select the `.venv` interpreter in PyCharm.
 5. Run tests from the repository root with `python -m pytest`.
 
-The sample environment uses local-only addresses and SQLite. It contains no credentials or private keys.
+Pydantic Settings loads `.env` automatically. Environment variables override values in that file. Startup validates configuration, creates the SQLite parent directory and upload directory when needed, and then initializes database tables.
+
+### Environment Variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | `sqlite:///./data/experiment_platform.db` | SQLAlchemy database connection URL. |
+| `UPLOAD_DIR` | `./data/uploads` | Root for locally stored recording artifacts. Filesystem roots are rejected. |
+| `TESTING_MODE` | `false` | Identifies an isolated test runtime. |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
+| `PI_ADAPTER_MODE` | `noop` | Recording adapter selection. Only `noop` is accepted until Pi integration exists. |
+| `CORS_ORIGINS` | Local ports `3000` and `8501` | Comma-separated browser origins. |
+
+Tests set their configuration before importing the application and use in-memory SQLite plus a temporary upload root. They do not read or write the development database or upload directory.
 
 ## Backend
 
-The `backend` package contains the FastAPI application, Pydantic contract schemas, SQLAlchemy models, database dependencies, and persistence operations. Experiment and exercise CRUD, recording lifecycle, and stored exercise-data retrieval/clearing are implemented. Sensor capture, uploads, and data processing are not implemented yet.
+The `backend` package contains the FastAPI application, Pydantic contract schemas, SQLAlchemy models, database dependencies, and persistence operations. Experiment and exercise CRUD, recording lifecycle, and stored exercise-data retrieval/clearing are implemented. External recording commands, uploads, and result processing are isolated behind dependency-free integration ports; safe no-op/deferred adapters are used until the Raspberry Pi and pipeline are available.
+
+Local artifact storage and `SensorUpload` metadata persistence are available as internal services. No public upload route is exposed because the authoritative OpenAPI contract does not define one; Raspberry Pi transport and automatic processing remain deferred.
+
+Internal processing orchestration validates stopped recordings and required artifact metadata, delegates through `ResultProcessor`, validates output against `ExerciseData`, and persists `ProcessedResult` only after success. The default processor remains explicitly deferred; no real signal, audio, or video algorithms are included.
 
 Start the development server from the repository root:
 
@@ -139,6 +156,12 @@ uvicorn backend.app.main:app --reload --port 3000
 ```
 
 Swagger UI is available at `http://localhost:3000/docs`.
+
+Run the complete test suite:
+
+```bash
+python -m pytest -q
+```
 
 ## Frontend
 
@@ -152,6 +175,8 @@ The `pi-client` directory is an independently deployable Raspberry Pi applicatio
 
 The client must remain operationally and structurally independent from the backend database.
 
+The backend currently permits only `PI_ADAPTER_MODE=noop`. A real mode will be added after the Pi command transport and failure behavior can be tested with hardware; changing the mode now fails configuration validation at startup.
+
 ## Pipeline
 
 The `pipeline` package provides sensor-specific processing and reusable feature extraction. Planned processors cover accelerometer, gyroscope, audio, and camera data. Pipeline inputs and outputs are isolated behind adapters so processing remains testable without FastAPI or Streamlit.
@@ -161,6 +186,8 @@ The `pipeline` package provides sensor-specific processing and reusable feature 
 Development uses SQLite through SQLAlchemy. Database access belongs exclusively to the backend persistence layer. Alembic is reserved for migrations as the implemented schema evolves.
 
 PostgreSQL support is planned for remote deployment. Application code should depend on SQLAlchemy sessions rather than SQLite-specific behavior to preserve portability.
+
+SQLite is appropriate for local development and a single backend process. Production deployment still requires migrations, PostgreSQL validation, authentication, TLS/reverse-proxy configuration, backups, and process supervision.
 
 ## Roadmap
 

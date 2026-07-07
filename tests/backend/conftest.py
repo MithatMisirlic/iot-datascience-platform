@@ -1,11 +1,25 @@
 """Fixtures for isolated backend API tests."""
 
+import atexit
 from collections.abc import Generator
 import os
+from pathlib import Path
+import shutil
 import sqlite3
+import tempfile
 from typing import Any
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+
+_test_runtime_dir = Path(tempfile.mkdtemp(prefix="experiment-platform-tests-"))
+atexit.register(shutil.rmtree, _test_runtime_dir, ignore_errors=True)
+os.environ.update(
+    DATABASE_URL="sqlite:///:memory:",
+    UPLOAD_DIR=str(_test_runtime_dir / "uploads"),
+    TESTING_MODE="true",
+    LOG_LEVEL="WARNING",
+    PI_ADAPTER_MODE="noop",
+    CORS_ORIGINS="http://testserver",
+)
 
 import pytest
 from fastapi.testclient import TestClient

@@ -1,5 +1,6 @@
 """Persistence tests for experiment and exercise contract endpoints."""
 
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi.testclient import TestClient
@@ -21,6 +22,7 @@ def test_experiment_and_exercise_crud_lifecycle(client: TestClient) -> None:
     experiment_id = experiment["id"]
     UUID(experiment_id)
     assert experiment["patientNumber"] == "P-0042"
+    assert datetime.fromisoformat(experiment["createdAt"]).utcoffset() == timedelta(0)
 
     response = client.get("/experiments", params={"page": 1, "pageSize": 1})
     assert response.status_code == 200
@@ -56,6 +58,7 @@ def test_experiment_and_exercise_crud_lifecycle(client: TestClient) -> None:
     assert exercise["experimentId"] == experiment_id
     assert exercise["recordingStatus"] == "idle"
     assert exercise["hasData"] is False
+    assert datetime.fromisoformat(exercise["createdAt"]).utcoffset() == timedelta(0)
 
     response = client.get(f"/experiments/{experiment_id}/exercises")
     assert response.status_code == 200

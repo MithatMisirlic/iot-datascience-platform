@@ -1,6 +1,6 @@
 """Recording lifecycle and exercise-data endpoint tests."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -9,6 +9,39 @@ from sqlalchemy.orm import Session
 from backend.app.models.processed_result import ProcessedResult
 from backend.app.models.sensor_upload import SensorUpload
 from shared.enums import SensorFileType
+from tests.backend.factories import processed_features
+
+
+def assert_utc_timestamp(value: str) -> datetime:
+    """Parse an API timestamp and assert that it is explicitly UTC."""
+
+    timestamp = datetime.fromisoformat(value)
+    assert timestamp.utcoffset() == timedelta(0)
+    return timestamp
+
+
+def add_internal_data(
+    database: Session,
+    exercise_id: str,
+    features: dict[str, object] | None = None,
+) -> None:
+    """Insert internal rows without introducing upload or processing behavior."""
+
+    database.add_all(
+        [
+            SensorUpload(
+                exercise_id=exercise_id,
+                file_type=SensorFileType.ACCEL,
+                original_filename="accel.csv",
+                file_path="recordings/accel.csv",
+            ),
+            ProcessedResult(
+                exercise_id=exercise_id,
+                features=features or processed_features(),
+            ),
+        ]
+    )
+    database.commit()
 
 
 def create_exercise(client: TestClient) -> tuple[str, str]:
@@ -38,7 +71,7 @@ def test_start_recording_success_and_conflicts(client: TestClient) -> None:
     assert exercise["hasData"] is False
     assert exercise["recordingStartedAt"] is not None
     assert exercise["recordingEndedAt"] is None
-    assert datetime.fromisoformat(exercise["recordingStartedAt"]).tzinfo is not None
+    assert_utc_timestamp(exercise["recordingStartedAt"])
 
     response = client.post(f"/exercises/{exercise_id}/recording/start")
     assert response.status_code == 409
@@ -72,6 +105,9 @@ def test_stop_recording_success_and_conflicts(client: TestClient) -> None:
         "recordingStartedAt"
     ]
     assert exercise["recordingEndedAt"] is not None
+    started_at = assert_utc_timestamp(exercise["recordingStartedAt"])
+    ended_at = assert_utc_timestamp(exercise["recordingEndedAt"])
+    assert ended_at >= started_at
 
     response = client.post(f"/exercises/{exercise_id}/recording/start")
     assert response.status_code == 409
@@ -115,39 +151,8 @@ def test_get_and_clear_exercise_data(
     _, exercise_id = create_exercise(client)
     start = client.post(f"/exercises/{exercise_id}/recording/start").json()
     stopped = client.post(f"/exercises/{exercise_id}/recording/stop").json()
-    features = {
-        "mouthOpening": {
-            "values": [[0.1, 0.2], [0.2, 0.3]],
-            "sampleRate": 30,
-        },
-        "soundPressure": {
-            "values": [0.01, 0.02],
-            "sampleRate": 48000,
-            "unit": "Pa",
-        },
-        "footSpeed": {
-            "values": [12.5, 13.0],
-            "sampleRate": 100,
-            "unit": "cm/s",
-        },
-        "aggregates": {
-            "stepLengths": {"values": [42.0, 44.0], "unit": "cm"},
-            "averages": {"footSpeed": 12.75, "stepLength": 43.0},
-            "medians": {"footSpeed": 12.75, "stepLength": 43.0},
-        },
-    }
-    database_session.add_all(
-        [
-            SensorUpload(
-                exercise_id=exercise_id,
-                file_type=SensorFileType.ACCEL,
-                original_filename="accel.csv",
-                file_path="recordings/accel.csv",
-            ),
-            ProcessedResult(exercise_id=exercise_id, features=features),
-        ]
-    )
-    database_session.commit()
+    features = processed_features()
+    add_internal_data(database_session, exercise_id, features)
 
     response = client.get(f"/exercises/{exercise_id}/data")
     assert response.status_code == 200
@@ -159,6 +164,8 @@ def test_get_and_clear_exercise_data(
     assert data["soundPressure"] == features["soundPressure"]
     assert data["footSpeed"] == features["footSpeed"]
     assert data["aggregates"] == features["aggregates"]
+    assert_utc_timestamp(data["startedAt"])
+    assert_utc_timestamp(data["endedAt"])
 
     response = client.delete(f"/exercises/{exercise_id}/data")
     assert response.status_code == 204
@@ -169,6 +176,39 @@ def test_get_and_clear_exercise_data(
     assert exercise["recordingStatus"] == "idle"
     assert exercise["recordingStartedAt"] is None
     assert exercise["recordingEndedAt"] is None
+
+    database_session.expire_all()
+    upload_count = database_session.scalar(
+        select(func.count()).select_from(SensorUpload)
+    )
+    result_count = database_session.scalar(
+        select(func.count()).select_from(ProcessedResult)
+    )
+    assert upload_count == 0
+    assert result_count == 0
+
+    response = client.get(f"/exercises/{exercise_id}/data")
+    assert response.status_code == 404
+    assert response.json() == {"error": "Exercise has no recorded data."}
+
+    response = client.post(f"/exercises/{exercise_id}/recording/start")
+    assert response.status_code == 200
+    assert response.json()["recordingStatus"] == "recording"
+
+
+def test_delete_exercise_cascades_internal_data(
+    client: TestClient,
+    database_session: Session,
+) -> None:
+    """Delete internal uploads and results through the exercise foreign key."""
+
+    _, exercise_id = create_exercise(client)
+    client.post(f"/exercises/{exercise_id}/recording/start")
+    client.post(f"/exercises/{exercise_id}/recording/stop")
+    add_internal_data(database_session, exercise_id)
+
+    response = client.delete(f"/exercises/{exercise_id}")
+    assert response.status_code == 204
 
     database_session.expire_all()
     upload_count = database_session.scalar(

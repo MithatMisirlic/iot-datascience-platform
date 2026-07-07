@@ -2,7 +2,6 @@
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-import os
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -13,6 +12,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.api.v1.router import api_router
+from backend.app.core.config import settings
+from backend.app.core.logging import configure_logging
 from backend.app.db.init_db import create_tables
 from backend.app.db.session import engine
 from backend.app.schemas.exercise_data import SignalFloat
@@ -39,6 +40,9 @@ OPENAPI_TAGS = [
 def startup() -> None:
     """Initialize database tables when the application starts."""
 
+    configure_logging(settings.log_level)
+    settings.validate_runtime()
+    settings.resolved_upload_dir.mkdir(parents=True, exist_ok=True)
     create_tables()
 
 
@@ -74,19 +78,11 @@ app = FastAPI(
     ],
 )
 app.openapi_version = "3.0.3"
-
-cors_origins = [
-    origin.strip()
-    for origin in os.getenv(
-        "CORS_ORIGINS",
-        "http://localhost:3000,http://localhost:8501",
-    ).split(",")
-    if origin.strip()
-]
+app.state.settings = settings
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

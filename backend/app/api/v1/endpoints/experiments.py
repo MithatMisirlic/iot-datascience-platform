@@ -2,12 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, Path, Query, status
 
 from backend.app.api.responses import BAD_REQUEST, NOT_FOUND
-from backend.app.crud import experiments as experiment_crud
-from backend.app.dependencies import DatabaseSession
+from backend.app.dependencies import ArtifactStorageDependency, DatabaseSession
 from backend.app.schemas.experiment import Experiment, ExperimentInput, ExperimentPage
+from backend.app.services import experiment_service
 
 
 router = APIRouter(tags=["Experiments"])
@@ -28,7 +28,7 @@ def create_experiment(
     """Create and persist an experiment."""
 
     return Experiment.model_validate(
-        experiment_crud.create_experiment(database, payload)
+        experiment_service.create_experiment(database, payload)
     )
 
 
@@ -44,7 +44,7 @@ def list_experiments(
 ) -> ExperimentPage:
     """List a page of experiments."""
 
-    items, total = experiment_crud.list_experiments(database, page, pageSize)
+    items, total = experiment_service.list_experiments(database, page, pageSize)
     return ExperimentPage(
         items=[Experiment.model_validate(item) for item in items],
         page=page,
@@ -65,10 +65,9 @@ def get_experiment(
 ) -> Experiment:
     """Get an experiment by id."""
 
-    experiment = experiment_crud.get_experiment(database, experimentId)
-    if experiment is None:
-        raise HTTPException(status_code=404, detail="Experiment not found.")
-    return Experiment.model_validate(experiment)
+    return Experiment.model_validate(
+        experiment_service.get_experiment(database, experimentId)
+    )
 
 
 @router.patch(
@@ -85,11 +84,8 @@ def update_experiment(
 ) -> Experiment:
     """Partially update an experiment."""
 
-    experiment = experiment_crud.get_experiment(database, experimentId)
-    if experiment is None:
-        raise HTTPException(status_code=404, detail="Experiment not found.")
     return Experiment.model_validate(
-        experiment_crud.update_experiment(database, experiment, payload)
+        experiment_service.update_experiment(database, experimentId, payload)
     )
 
 
@@ -107,11 +103,9 @@ def update_experiment(
 def delete_experiment(
     experimentId: Annotated[str, Path(description="The id of the experiment.")],
     database: DatabaseSession,
+    storage: ArtifactStorageDependency,
 ) -> None:
     """Delete an experiment and all related records."""
 
-    experiment = experiment_crud.get_experiment(database, experimentId)
-    if experiment is None:
-        raise HTTPException(status_code=404, detail="Experiment not found.")
-    experiment_crud.delete_experiment(database, experiment)
+    experiment_service.delete_experiment(database, experimentId, storage)
     return None
