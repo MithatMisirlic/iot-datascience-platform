@@ -1,0 +1,6 @@
+websockets>=14.2,<17.0
+smbus2>=0.4,<1.0
+numpy>=1.26,<3.0
+sounddevice>=0.5,<1.0
+scipy>=1.11,<2.0
+opencv-python-headless>=4.9,<5.0

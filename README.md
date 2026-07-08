@@ -171,9 +171,9 @@ Planned pages include Dashboard, Experiments, Participants, Recording Sessions, 
 
 ## Pi Client
 
-The `pi-client` directory is an independently deployable Raspberry Pi application. Its responsibilities are limited to recording MPU6050 motion data, INMP441 audio, and camera images; storing files locally; and uploading them to the backend over HTTP.
+The `pi-client` directory is an independently deployable asyncio application. It streams raw MPU6050 frames, INMP441 RMS amplitude, and optional base64 JPEG frames to a configured WebSocket server. It also handles server-controlled local WAV start/stop commands and reconnects after connection failures.
 
-The client must remain operationally and structurally independent from the backend database.
+Hardware adapters are guarded and replaceable with deterministic mocks. The client remains operationally and structurally independent from the REST backend and its database.
 
 The backend currently permits only `PI_ADAPTER_MODE=noop`. A real mode will be added after the Pi command transport and failure behavior can be tested with hardware; changing the mode now fails configuration validation at startup.
 
@@ -193,7 +193,7 @@ SQLite is appropriate for local development and a single backend process. Produc
 
 - Connect recording lifecycle operations to the Raspberry Pi client.
 - Populate processed exercise results through the data pipeline.
-- Implement local Pi sensor recording and resilient HTTP uploads.
+- Validate WebSocket streaming and recorder adapters on the Raspberry Pi hardware.
 - Add processing workflows and feature extraction.
 - Build the Streamlit dashboard and Plotly visualizations.
 - Add unit, integration, and hardware-boundary tests.
