@@ -69,6 +69,7 @@ experiment-platform/
 |   |-- io/                      # Pipeline input/output adapters
 |   `-- processors/              # Sensor-specific processors
 |-- shared/                      # Dependency-light shared contracts
+|-- tools/                       # Standalone development utilities
 |-- docs/                        # Architecture and operations guides
 `-- tests/                       # Unit, component, and integration tests
 ```
@@ -162,6 +163,26 @@ Run the complete test suite:
 ```bash
 python -m pytest -q
 ```
+
+### Pi WebSocket Test Server
+
+The development-only receiver in `tools/dev_ws_server.py` validates local Pi streaming without modifying or starting the REST API. From the repository root, with the development environment active, run:
+
+```bash
+python -m tools.dev_ws_server
+```
+
+It listens on all local interfaces at `ws://0.0.0.0:8080/stream` and prints IMU, audio, and camera frame counts once per second. Camera payloads remain in memory only long enough to count them; no images are written. The server sends no commands to the Pi.
+
+Configure the Pi client's `PI_WS_HOST` with the development computer's LAN IP address, not `0.0.0.0` or `localhost`:
+
+```dotenv
+PI_WS_HOST=192.168.0.182
+PI_WS_PORT=8080
+PI_WS_PATH=/stream
+```
+
+Ensure the operating-system firewall permits inbound TCP port `8080`. Stop the server with `Ctrl+C`. Optional `--host` and `--port` arguments are available for local diagnostics, while the defaults match the Pi client protocol configuration.
 
 ## Frontend
 

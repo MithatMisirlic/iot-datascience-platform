@@ -1,85 +1,147 @@
 # Raspberry Pi WebSocket Client
 
-Independent asyncio client for streaming sensor frames to
-`ws://192.168.0.182:8080/stream`. It has no backend database dependency.
+This directory is a self-contained Raspberry Pi deployment unit. It streams IMU, audio RMS, and optional JPEG camera frames to the configured WebSocket server. It does not import or access the REST backend, frontend, pipeline, or database.
 
-## Streams
+## Deployment Scope
 
-- Raw MPU6050 accelerometer and gyroscope frames at approximately 60 Hz.
-- INMP441/PortAudio RMS amplitude frames at approximately 60 Hz.
-- Optional base64 JPEG camera frames at configurable FPS.
-- Local WAV capture controlled by `start_wav` and `stop_wav` server commands.
+Deploy the contents of this `pi-client` directory directly to:
 
-All outbound WebSocket messages are JSON objects matching the specified `imu`,
-`audio`, and `camera` frame structures. One sender task serializes frames from all
-enabled producers. The client reconnects with exponential backoff capped by the
-configured maximum.
-
-## Raspberry Pi Setup
-
-From the repository root:
-
-```bash
-cd pi-client
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
+```text
+/home/pi007/mithat-iot-datascience-platform
 ```
 
-Enable I2C for the MPU6050. `sounddevice` also requires PortAudio to be installed
-by the operating system. The camera adapter uses an OpenCV-compatible camera
-device index; camera streaming is disabled by default.
+Do not deploy the repository's backend, frontend, pipeline, shared, or test directories to run the Pi client.
 
-Export configuration variables or source a reviewed environment file:
+## Raspberry Pi Prerequisites
+
+Install the system packages before running the setup script:
 
 ```bash
-cp .env.example .env
-set -a
-source .env
-set +a
+sudo apt update
+sudo apt install -y \
+  python3 python3-venv python3-pip python3-dev build-essential \
+  i2c-tools alsa-utils libasound2-dev libportaudio2 portaudio19-dev
+```
+
+Enable I2C through `sudo raspi-config` under **Interface Options > I2C** before using the MPU6050. INMP441 I2S configuration depends on the selected audio HAT/overlay and must be completed separately.
+
+## First-Time Setup
+
+From the remote project directory:
+
+```bash
+cd /home/pi007/mithat-iot-datascience-platform
+chmod +x setup_pi.sh
+./setup_pi.sh
+```
+
+The script creates `.venv`, installs `requirements.txt`, creates `recordings`, copies `.env.example` to `.env` when needed, and makes `run_pi.sh` executable.
+
+Review `.env`, then start the client:
+
+```bash
+./run_pi.sh
+```
+
+`run_pi.sh` loads `.env`, activates `.venv`, and runs:
+
+```bash
 python -m pi_client.main
 ```
 
 ## Configuration
 
-| Variable | Default | Description |
+| Variable | Purpose | Default |
 | --- | --- | --- |
-| `PI_WS_HOST` | `192.168.0.182` | WebSocket server host. |
-| `PI_WS_PORT` | `8080` | WebSocket server port. |
-| `PI_WS_PATH` | `/stream` | WebSocket path. |
-| `PI_IMU_ENABLED` | `true` | Enable MPU6050 frames. |
-| `PI_AUDIO_ENABLED` | `true` | Enable RMS audio frames and WAV commands. |
-| `PI_CAMERA_ENABLED` | `false` | Enable JPEG frames. |
-| `PI_MOCK_MODE` | `false` | Use deterministic hardware-free recorders. |
-| `PI_IMU_RATE_HZ` | `60` | IMU target frame rate. |
-| `PI_AUDIO_RATE_HZ` | `60` | Audio RMS target frame rate. |
-| `PI_CAMERA_FPS` | `5` | Camera target frame rate. |
-| `PI_RECONNECT_INITIAL_SECONDS` | `1` | Initial reconnect delay. |
-| `PI_RECONNECT_MAX_SECONDS` | `30` | Maximum reconnect delay. |
-| `PI_I2C_BUS` | `1` | Linux I2C bus number. |
-| `PI_MPU6050_ADDRESS` | `0x68` | MPU6050 I2C address. |
-| `PI_AUDIO_SAMPLE_RATE` | `48000` | Audio sample rate. |
-| `PI_CAMERA_INDEX` | `0` | OpenCV camera device index. |
-| `PI_CAMERA_JPEG_QUALITY` | `80` | JPEG quality from 1 to 100. |
-| `PI_WAV_DIR` | `./recordings` | Directory for commanded WAV files. |
+| `PI_WS_HOST` | WebSocket server address | `192.168.0.182` |
+| `PI_WS_PORT` | WebSocket server port | `8080` |
+| `PI_WS_PATH` | WebSocket endpoint path | `/stream` |
+| `PI_IMU_ENABLED` | Enable MPU6050 frames | `true` |
+| `PI_AUDIO_ENABLED` | Enable audio RMS frames and WAV commands | `true` |
+| `PI_CAMERA_ENABLED` | Enable JPEG camera frames | `false` |
+| `PI_MOCK_MODE` | Use hardware-free mock recorders | `false` |
+| `PI_IMU_RATE_HZ` | IMU frame rate | `60` |
+| `PI_AUDIO_RATE_HZ` | Audio RMS frame rate | `60` |
+| `PI_CAMERA_FPS` | Camera frame rate | `5` |
+| `PI_WAV_DIR` | WAV output directory, relative to this directory | `./recordings` |
 
-## Hardware-Free Test
+The remaining hardware and reconnect settings are documented in `.env.example`. All local paths are relative to the deployment directory.
 
-Mock mode requires only `websockets` and the Python standard library at runtime:
+## Testing Without Hardware
 
-```bash
-cd pi-client
-PI_MOCK_MODE=true PI_CAMERA_ENABLED=true python -m pi_client.main
+Set these values in `.env`:
+
+```dotenv
+PI_MOCK_MODE=true
+PI_CAMERA_ENABLED=true
 ```
 
-On Windows PowerShell:
+Then run `./run_pi.sh`. The client uses deterministic mock recorders but still requires a reachable WebSocket server. To test startup without a camera stream, leave `PI_CAMERA_ENABLED=false`.
 
-```powershell
-cd pi-client
-$env:PI_MOCK_MODE="true"
-$env:PI_CAMERA_ENABLED="true"
-python -m pi_client.main
+## PyCharm Professional Deployment
+
+### SFTP Deployment
+
+1. Open **Settings > Build, Execution, Deployment > Deployment**.
+2. Add an **SFTP** server using the Pi hostname/IP, SSH port, and user `pi007`.
+3. Set the server root path to `/home/pi007/mithat-iot-datascience-platform`.
+4. In **Mappings**, set the local path to this repository's `pi-client` directory and the deployment path to `/`.
+5. Exclude `.venv`, `.env`, `recordings`, `__pycache__`, and `.idea` from deployment.
+6. Upload the directory with **Tools > Deployment > Upload to...**.
+
+This mapping is important: `setup_pi.sh`, `run_pi.sh`, and `requirements.txt` must be placed directly in the remote project root, not in a nested `pi-client` directory.
+
+### Automatic Upload
+
+Under **Settings > Build, Execution, Deployment > Deployment > Options**, set **Upload changed files automatically to the default server** to **Always** or **On explicit save action**. Mark the Pi SFTP entry as the default server.
+
+### SSH Interpreter
+
+Run `./setup_pi.sh` once before configuring the interpreter. Then:
+
+1. Open **Settings > Project > Python Interpreter**.
+2. Select **Add Interpreter > On SSH** and use the same Pi SSH connection.
+3. Select the existing interpreter at `/home/pi007/mithat-iot-datascience-platform/.venv/bin/python`.
+4. Set the remote working directory to `/home/pi007/mithat-iot-datascience-platform`.
+
+### Remote Execution
+
+The recommended remote run command is `./run_pi.sh` because it loads `.env`. Configure a PyCharm Shell Script run configuration with:
+
+```text
+Script: /home/pi007/mithat-iot-datascience-platform/run_pi.sh
+Working directory: /home/pi007/mithat-iot-datascience-platform
 ```
 
-The configured WebSocket server must still be reachable. Mock mode generates
-deterministic IMU/audio frames and a static JPEG; it never opens hardware.
+Alternatively, use a Python run configuration with module `pi_client.main` and the same working directory. In that case, define the `PI_*` environment variables in the run configuration because Python execution does not automatically source `.env`.
+
+## Expected Remote Layout
+
+```text
+/home/pi007/mithat-iot-datascience-platform/
+├── .env
+├── .env.example
+├── .gitignore
+├── .venv/
+├── README.md
+├── recordings/
+├── requirements.txt
+├── run_pi.sh
+├── setup_pi.sh
+└── pi_client/
+    ├── __init__.py
+    ├── main.py
+    ├── websocket_client.py
+    ├── config/
+    ├── recorders/
+    ├── storage/
+    └── uploader/
+```
+
+## Troubleshooting
+
+- `ModuleNotFoundError`: run `./setup_pi.sh` again and verify `.venv/bin/python` is selected.
+- I2C permission errors: verify I2C is enabled and the user has access to `/dev/i2c-*`.
+- Audio device errors: run `arecord -l` and verify the INMP441 I2S device configuration.
+- WebSocket reconnect loop: verify `PI_WS_HOST`, `PI_WS_PORT`, network routing, and that the server exposes `/stream`.
+- Camera import errors: keep `PI_CAMERA_ENABLED=false` until a supported camera stack is installed and configured.
