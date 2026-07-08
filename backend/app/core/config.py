@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./data/experiment_platform.db"
     upload_dir: Path = Path("./data/uploads")
+    raw_frame_dir: Path = Path("./data/exercises")
     testing_mode: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     pi_adapter_mode: Literal["noop"] = "noop"
@@ -53,15 +54,24 @@ class Settings(BaseSettings):
 
         return self.upload_dir.expanduser().resolve()
 
+    @property
+    def resolved_raw_frame_dir(self) -> Path:
+        """Return the absolute raw-frame storage directory."""
+
+        return self.raw_frame_dir.expanduser().resolve()
+
     def validate_runtime(self) -> None:
         """Validate path settings that depend on the host filesystem."""
 
-        upload_dir = self.resolved_upload_dir
-        filesystem_root = Path(upload_dir.anchor).resolve()
-        if upload_dir == filesystem_root:
-            raise ValueError("UPLOAD_DIR must not be a filesystem root.")
-        if upload_dir.exists() and not upload_dir.is_dir():
-            raise ValueError("UPLOAD_DIR must reference a directory.")
+        for name, directory in (
+            ("UPLOAD_DIR", self.resolved_upload_dir),
+            ("RAW_FRAME_DIR", self.resolved_raw_frame_dir),
+        ):
+            filesystem_root = Path(directory.anchor).resolve()
+            if directory == filesystem_root:
+                raise ValueError(f"{name} must not be a filesystem root.")
+            if directory.exists() and not directory.is_dir():
+                raise ValueError(f"{name} must reference a directory.")
 
 
 settings = Settings()

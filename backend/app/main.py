@@ -43,6 +43,7 @@ def startup() -> None:
     configure_logging(settings.log_level)
     settings.validate_runtime()
     settings.resolved_upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.resolved_raw_frame_dir.mkdir(parents=True, exist_ok=True)
     create_tables()
 
 

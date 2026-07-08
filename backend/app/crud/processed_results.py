@@ -12,9 +12,24 @@ def create_exercise_result(
     features: dict[str, object],
 ) -> ProcessedResult:
     """Persist one validated processed result for an exercise."""
+    result = stage_exercise_result(database, exercise_id, features)
+    return commit_staged_result(database, result)
 
+
+def stage_exercise_result(
+    database: Session,
+    exercise_id: str,
+    features: dict[str, object],
+) -> ProcessedResult:
+    """Stage and flush a result without committing its surrounding use case."""
     result = ProcessedResult(exercise_id=exercise_id, features=features)
     database.add(result)
+    database.flush()
+    return result
+
+
+def commit_staged_result(database: Session, result: ProcessedResult) -> ProcessedResult:
+    """Commit a staged result and all related state changes atomically."""
     try:
         database.commit()
         database.refresh(result)

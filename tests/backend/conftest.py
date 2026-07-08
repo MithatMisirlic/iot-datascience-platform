@@ -15,6 +15,7 @@ atexit.register(shutil.rmtree, _test_runtime_dir, ignore_errors=True)
 os.environ.update(
     DATABASE_URL="sqlite:///:memory:",
     UPLOAD_DIR=str(_test_runtime_dir / "uploads"),
+    RAW_FRAME_DIR=str(_test_runtime_dir / "exercises"),
     TESTING_MODE="true",
     LOG_LEVEL="WARNING",
     PI_ADAPTER_MODE="noop",

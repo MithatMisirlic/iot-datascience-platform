@@ -135,6 +135,7 @@ Pydantic Settings loads `.env` automatically. Environment variables override val
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///./data/experiment_platform.db` | SQLAlchemy database connection URL. |
 | `UPLOAD_DIR` | `./data/uploads` | Root for locally stored recording artifacts. Filesystem roots are rejected. |
+| `RAW_FRAME_DIR` | `./data/exercises` | Root for development raw-frame JSON documents. |
 | `TESTING_MODE` | `false` | Identifies an isolated test runtime. |
 | `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`. |
 | `PI_ADAPTER_MODE` | `noop` | Recording adapter selection. Only `noop` is accepted until Pi integration exists. |
@@ -149,6 +150,18 @@ The `backend` package contains the FastAPI application, Pydantic contract schema
 Local artifact storage and `SensorUpload` metadata persistence are available as internal services. No public upload route is exposed because the authoritative OpenAPI contract does not define one; Raspberry Pi transport and automatic processing remain deferred.
 
 Internal processing orchestration validates stopped recordings and required artifact metadata, delegates through `ResultProcessor`, validates output against `ExerciseData`, and persists `ProcessedResult` only after success. The default processor remains explicitly deferred; no real signal, audio, or video algorithms are included.
+
+The development raw-frame workflow stores numeric IMU, audio RMS, and mouth geometry frames at `RAW_FRAME_DIR/<exercise-id>/raw_frames.json`. It does not store camera JPEG payloads in the database. To generate sample frames, process an existing exercise, and persist its `ProcessedResult`, run:
+
+```bash
+python -m tools.process_exercise <exercise-id> --generate-sample
+```
+
+The exercise must already exist in the configured database. Existing raw frames can be processed without replacing them by omitting `--generate-sample`. Verify the result through the unchanged endpoint:
+
+```text
+GET /exercises/<exercise-id>/data
+```
 
 Start the development server from the repository root:
 

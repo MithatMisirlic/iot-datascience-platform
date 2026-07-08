@@ -17,6 +17,7 @@ def test_settings_parse_and_normalize_values(tmp_path: Path) -> None:
         _env_file=None,
         database_url="sqlite:///:memory:",
         upload_dir=tmp_path / "uploads",
+        raw_frame_dir=tmp_path / "exercises",
         testing_mode=True,
         log_level="debug",
         pi_adapter_mode="noop",
@@ -26,6 +27,7 @@ def test_settings_parse_and_normalize_values(tmp_path: Path) -> None:
     assert settings.testing_mode is True
     assert settings.log_level == "DEBUG"
     assert settings.resolved_upload_dir == (tmp_path / "uploads").resolve()
+    assert settings.resolved_raw_frame_dir == (tmp_path / "exercises").resolve()
     assert settings.cors_origin_list == [
         "http://localhost:3000",
         "http://localhost:8501",
@@ -41,11 +43,13 @@ def test_settings_load_dotenv_with_environment_precedence(
 
     env_file = tmp_path / ".env"
     upload_dir = tmp_path / "dotenv-uploads"
+    raw_frame_dir = tmp_path / "dotenv-exercises"
     env_file.write_text(
         "\n".join(
             [
                 "DATABASE_URL=sqlite:///:memory:",
                 f"UPLOAD_DIR={upload_dir.as_posix()}",
+                f"RAW_FRAME_DIR={raw_frame_dir.as_posix()}",
                 "TESTING_MODE=true",
                 "LOG_LEVEL=debug",
                 "PI_ADAPTER_MODE=noop",
@@ -57,6 +61,7 @@ def test_settings_load_dotenv_with_environment_precedence(
     for variable in (
         "DATABASE_URL",
         "UPLOAD_DIR",
+        "RAW_FRAME_DIR",
         "TESTING_MODE",
         "LOG_LEVEL",
         "PI_ADAPTER_MODE",
@@ -68,6 +73,7 @@ def test_settings_load_dotenv_with_environment_precedence(
     assert dotenv_settings.testing_mode is True
     assert dotenv_settings.log_level == "DEBUG"
     assert dotenv_settings.resolved_upload_dir == upload_dir.resolve()
+    assert dotenv_settings.resolved_raw_frame_dir == raw_frame_dir.resolve()
 
     monkeypatch.setenv("LOG_LEVEL", "ERROR")
     overridden_settings = Settings(_env_file=env_file)
