@@ -8,6 +8,7 @@ from typing import Any, Protocol
 from websockets.asyncio.client import ClientConnection, connect
 
 from pi_client.config import PiClientConfig
+from pi_client.recorders import FrameCaptureError
 
 
 logger = logging.getLogger(__name__)
@@ -141,8 +142,16 @@ class SensorWebSocketClient:
         loop = asyncio.get_running_loop()
         next_tick = loop.time()
         while not self._stop_event.is_set():
-            frame = await asyncio.to_thread(source.read_frame)
-            await queue.put(frame)
+            try:
+                frame = await asyncio.to_thread(source.read_frame)
+            except FrameCaptureError as error:
+                logger.warning(
+                    "Skipping failed frame from %s: %s",
+                    type(source).__name__,
+                    error,
+                )
+            else:
+                await queue.put(frame)
             next_tick += interval
             now = loop.time()
             if next_tick < now - interval:

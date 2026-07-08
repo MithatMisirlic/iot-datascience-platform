@@ -78,6 +78,27 @@ PI_CAMERA_ENABLED=true
 
 Then run `./run_pi.sh`. The client uses deterministic mock recorders but still requires a reachable WebSocket server. To test startup without a camera stream, leave `PI_CAMERA_ENABLED=false`.
 
+## Camera-Only Test
+
+Picamera2 is the primary CSI camera adapter and captures `320x240` frames. Verify the camera first with `rpicam-hello --list-cameras`, then configure `.env`:
+
+```dotenv
+PI_IMU_ENABLED=false
+PI_AUDIO_ENABLED=false
+PI_CAMERA_ENABLED=true
+PI_MOCK_MODE=false
+PI_CAMERA_FPS=5
+PI_CAMERA_JPEG_QUALITY=80
+```
+
+Start a reachable development WebSocket server on the configured host and run:
+
+```bash
+./run_pi.sh
+```
+
+The client logs Picamera2 initialization and streams base64 JPEG camera frames using the existing protocol. Individual capture or JPEG encoding failures are logged and skipped without closing the WebSocket connection.
+
 ## PyCharm Professional Deployment
 
 ### SFTP Deployment

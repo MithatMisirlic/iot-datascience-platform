@@ -11,7 +11,8 @@ import pytest
 from pi_client.config import PiClientConfig
 from pi_client.main import build_client
 from pi_client.recorders.audio import MockAudioRecorder
-from pi_client.recorders.camera import MockCameraRecorder
+from pi_client.recorders import FrameCaptureError
+from pi_client.recorders.camera import CameraRecorder, MockCameraRecorder
 from pi_client.recorders.motion import MockMotionRecorder, MotionRecorder
 from pi_client.websocket_client import SensorWebSocketClient
 
@@ -80,6 +81,22 @@ class FakeCommandAudio:
     def stop_wav(self) -> str:
         self.stopped += 1
         return "stopped.wav"
+
+    def close(self) -> None:
+        pass
+
+
+class RecoveringFrameSource:
+    """Fail once, then return a frame to verify transient recovery."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def read_frame(self) -> dict[str, object]:
+        self.calls += 1
+        if self.calls == 1:
+            raise FrameCaptureError("temporary camera failure")
+        return {"type": "camera", "ts": 1.0, "jpeg": "jpeg"}
 
     def close(self) -> None:
         pass
@@ -157,6 +174,110 @@ def test_mock_camera_frame_contains_base64_jpeg() -> None:
     assert isinstance(frame["ts"], float)
     assert jpeg.startswith(b"\xff\xd8")
     assert jpeg.endswith(b"\xff\xd9")
+
+
+def test_picamera2_recorder_configures_and_encodes_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Configure 320x240 capture and preserve the camera frame protocol."""
+    import pi_client.recorders.camera as camera_module
+
+    class FakeImage:
+        size = 320 * 240 * 3
+
+    class FakeJpeg:
+        def tobytes(self) -> bytes:
+            return b"\xff\xd8jpeg\xff\xd9"
+
+    class FakeCv2:
+        COLOR_RGB2BGR = 1
+        IMWRITE_JPEG_QUALITY = 2
+
+        def __init__(self) -> None:
+            self.encode_parameters: list[int] | None = None
+
+        @staticmethod
+        def cvtColor(image: object, conversion: int) -> object:
+            assert isinstance(image, FakeImage)
+            assert conversion == FakeCv2.COLOR_RGB2BGR
+            return image
+
+        def imencode(
+            self,
+            extension: str,
+            image: object,
+            parameters: list[int],
+        ) -> tuple[bool, FakeJpeg]:
+            assert extension == ".jpg"
+            assert isinstance(image, FakeImage)
+            self.encode_parameters = parameters
+            return True, FakeJpeg()
+
+    class FakePicamera2:
+        instance: "FakePicamera2"
+
+        def __init__(self, camera_index: int) -> None:
+            assert camera_index == 0
+            self.configuration: dict[str, object] | None = None
+            self.started = False
+            self.stopped = False
+            self.closed = False
+            FakePicamera2.instance = self
+
+        def create_video_configuration(self, **configuration: object) -> dict[str, object]:
+            return configuration
+
+        def configure(self, configuration: dict[str, object]) -> None:
+            self.configuration = configuration
+
+        def start(self) -> None:
+            self.started = True
+
+        def capture_array(self, stream: str) -> FakeImage:
+            assert stream == "main"
+            return FakeImage()
+
+        def stop(self) -> None:
+            self.stopped = True
+
+        def close(self) -> None:
+            self.closed = True
+
+    fake_cv2 = FakeCv2()
+    monkeypatch.setattr(camera_module, "Picamera2", FakePicamera2)
+    monkeypatch.setattr(camera_module, "cv2", fake_cv2)
+
+    recorder = CameraRecorder(camera_index=0, jpeg_quality=72)
+    frame = recorder.read_frame()
+    recorder.close()
+
+    assert FakePicamera2.instance.configuration == {
+        "main": {"size": (320, 240), "format": "BGR888"},
+        "buffer_count": 2,
+    }
+    assert FakePicamera2.instance.started is True
+    assert FakePicamera2.instance.stopped is True
+    assert FakePicamera2.instance.closed is True
+    assert fake_cv2.encode_parameters == [FakeCv2.IMWRITE_JPEG_QUALITY, 72]
+    assert frame["type"] == "camera"
+    assert base64.b64decode(frame["jpeg"]) == b"\xff\xd8jpeg\xff\xd9"
+
+
+def test_frame_producer_skips_recoverable_capture_failure() -> None:
+    """Keep the producer alive after one bad camera frame."""
+
+    async def scenario() -> None:
+        source = RecoveringFrameSource()
+        client = SensorWebSocketClient(PiClientConfig(), camera_source=source)
+        queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
+        producer = asyncio.create_task(client._produce_frames(source, 100, queue))
+        frame = await asyncio.wait_for(queue.get(), timeout=1)
+        client.request_stop()
+        await asyncio.wait_for(producer, timeout=1)
+        assert source.calls >= 2
+        assert frame["type"] == "camera"
+
+    asyncio.run(scenario())
 
 
 def test_build_client_uses_only_mock_sources() -> None:
