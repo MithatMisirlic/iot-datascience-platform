@@ -199,9 +199,25 @@ Ensure the operating-system firewall permits inbound TCP port `8080`. Stop the s
 
 ## Frontend
 
-The `frontend` package is reserved for the Streamlit dashboard. Pages are separated from reusable components and backend API access. The frontend will communicate through HTTP and will not import backend persistence code.
+The `frontend` package contains the Streamlit dashboard. It communicates only through the REST API using the reusable client in `frontend/api_client.py`; it does not import backend persistence, Pi client, or processing internals.
 
-Planned pages include Dashboard, Experiments, Participants, Recording Sessions, Results, and Analytics.
+Dashboard pages include Dashboard, Experiments, Exercises, Recording, and Results. The UI supports experiment CRUD, exercise CRUD, recording start/stop controls, processed result visualization, and data clearing through the existing API contract.
+
+Install dashboard dependencies:
+
+```bash
+python -m pip install -r frontend/requirements.txt
+```
+
+Configure the backend URL with `API_BASE_URL` or the sidebar input. The default is `http://localhost:3000`.
+
+Start Streamlit from the repository root:
+
+```bash
+streamlit run frontend/app.py
+```
+
+See `frontend/README.md` for the full frontend setup and workflow.
 
 ## Pi Client
 
