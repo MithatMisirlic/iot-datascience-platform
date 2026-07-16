@@ -23,6 +23,10 @@ def render(api: ExperimentApiClient, base_url: str) -> None:
 
     del base_url
     st.title("Results")
+    st.caption("Review processed research features and export a descriptive report.")
+    with st.expander("Demo mode: latest processed exercise", expanded=False):
+        _render_latest_processed_result(api)
+
     experiment = select_experiment(api, "results_experiment_select")
     if experiment is None:
         return
@@ -40,7 +44,8 @@ def render(api: ExperimentApiClient, base_url: str) -> None:
                 if exc.status_code == 404:
                     st.info(
                         "No processed data is available for this exercise yet. "
-                        "Run the backend processing workflow first."
+                        "Stop a recording from Live Experiment and wait for automatic "
+                        "processing, or use the CLI fallback for sample data."
                     )
                 else:
                     show_api_error(exc)
@@ -68,6 +73,35 @@ def render(api: ExperimentApiClient, base_url: str) -> None:
         st.session_state.pop("last_results_exercise_id", None)
         st.success("Exercise data cleared.")
         st.rerun()
+
+
+def _render_latest_processed_result(api: ExperimentApiClient) -> None:
+    """Load the newest exercise with data for hardware-free demonstration."""
+
+    try:
+        page = api.list_exercises(page=1, page_size=100)
+    except ApiClientError as exc:
+        show_api_error(exc)
+        return
+    exercises = page.get("items", []) if isinstance(page.get("items"), list) else []
+    candidates = [item for item in exercises if item.get("hasData")]
+    if not candidates:
+        st.info("No processed exercise is available yet.")
+        return
+    latest = sorted(
+        candidates,
+        key=lambda item: item.get("recordingEndedAt") or item.get("createdAt") or "",
+        reverse=True,
+    )[0]
+    st.caption(f"Latest processed exercise: `{latest['id']}`")
+    if st.button("Load latest processed result"):
+        try:
+            data = api.get_exercise_data(latest["id"])
+        except ApiClientError as exc:
+            show_api_error(exc)
+            return
+        st.session_state["last_results_exercise_id"] = latest["id"]
+        render_exercise_results(data)
 
 
 if __name__ == "__main__":

@@ -8,11 +8,11 @@ The current system combines:
 - MPU6050 IMU for accelerometer and gyroscope frames.
 - INMP441 microphone for RMS audio frames.
 - Raspberry Pi CSI camera for base64 JPEG frames.
-- Development WebSocket receiver for live frame-count validation.
+- FastAPI WebSocket receiver for live Pi frame ingestion and dashboard feedback.
 - FastAPI backend for experiments, exercises, recording lifecycle, and processed data access.
 - SQLAlchemy with SQLite for development persistence.
 - Processing pipeline for generic IMU, audio, and mouth/MAR feature extraction.
-- CLI processing workflow for creating persisted `ProcessedResult` rows.
+- Automatic processing on recording stop, with CLI fallback for debugging/sample data.
 - Streamlit dashboard for operating the REST workflow and viewing results.
 
 This is not a medical device and does not provide diagnosis, treatment advice, or clinical predictions. Feature values are research/demo outputs only.
@@ -29,14 +29,17 @@ Implemented:
 - SQLite persistence.
 - Streamlit dashboard.
 - Raspberry Pi WebSocket streaming client.
-- Development WebSocket receiver that counts live IMU/audio/camera frames.
-- Processing pipeline and CLI integration for persisted results.
+- Backend WebSocket `/stream` receiver that associates live frames with the active exercise.
+- Processing pipeline and automatic `ProcessedResult` persistence after stop.
 
-Current limitation:
+Current live workflow:
 
-- `tools.dev_ws_server` receives and counts live Pi frames, but it does not yet associate those frames with an exercise UUID.
-- Live WebSocket frames are not yet automatically written to `RAW_FRAME_DIR/<exercise-id>/raw_frames.json`.
-- `tools.process_exercise` is currently used to process stored or generated raw frames into `ProcessedResult.features`.
+- The Pi sends unchanged JSON frames to backend `WS /stream`.
+- The backend session manager associates frames with the exercise selected through recording start.
+- Numeric IMU, audio, and mouth/MAR frames are buffered in memory during recording and written once at stop to `RAW_FRAME_DIR/<exercise-id>/raw_frames.json`.
+- Camera JPEG frames are retained only as a throttled live preview and are not stored in the raw JSON or SQLite.
+- Stopping a recording automatically runs the existing processing pipeline and persists `ProcessedResult`.
+- `tools.dev_ws_server` remains available for low-level frame-count diagnostics, and `tools.process_exercise` remains available for fallback/sample generation.
 
 ## Architecture
 
@@ -49,14 +52,14 @@ Raspberry Pi sensors
         v
 Pi WebSocket client
         |
-        | ws://<development-machine-ip>:8080/stream
+        | ws://<development-machine-ip>:3000/stream
         v
-Development WebSocket receiver
-  tools.dev_ws_server
-  - counts imu/audio/camera frames once per second
-  - does not persist live frames yet
+FastAPI WebSocket receiver
+  WS /stream
+  - tracks Pi connection and latest sensor values
+  - persists numeric frames only for the active exercise
+  - keeps camera JPEG as throttled preview only
         |
-        | current manual development bridge
         v
 Raw frame JSON storage
   RAW_FRAME_DIR/<exercise-id>/raw_frames.json
@@ -79,6 +82,21 @@ Streamlit dashboard
 ```
 
 The Raspberry Pi client is independent from the backend database. The Streamlit dashboard also communicates only through the REST API.
+
+## Research Dashboard
+
+The Streamlit dashboard is organized for demonstration and research review:
+
+- Live Experiment provides experiment selection, exercise selection, Pi connection state, recording state, elapsed time, sensor indicators, camera preview, rolling audio, rolling IMU, and mouth/MAR feedback.
+- Results separates processed data into Speech, Movement, Vision, and Overall tabs.
+- Results includes metric cards, Plotly-capable charts, a descriptive Research Summary, JSON export, Markdown export, and CSV series export.
+- Demo mode on the Results page can load the latest processed exercise without requiring a connected Pi.
+
+Static UI previews are included for presentation planning. They are documentation previews, not captured live hardware screenshots.
+
+![Live Experiment dashboard preview](docs/screenshots/live-experiment.svg)
+
+![Results dashboard preview](docs/screenshots/results-page.svg)
 
 ## Extracted Analysis Features
 
@@ -142,7 +160,7 @@ IoT_DataScience/
 |-- pi-client/            # Raspberry Pi WebSocket client deployment unit
 |-- pipeline/             # Pure Python processing and feature extraction
 |-- shared/               # Dependency-light shared enums/errors/constants
-|-- tools/                # Development WebSocket server and processing CLI
+|-- tools/                # Diagnostic WebSocket server and processing CLI fallback
 |-- tests/                # Backend, frontend, pipeline, Pi-client, and unit tests
 |-- .env.example          # Backend/runtime environment placeholders
 |-- requirements.txt      # Backend/runtime Python dependencies
@@ -166,7 +184,7 @@ IoT_DataScience/
 - MPU6050 connected over I2C.
 - INMP441 microphone configured as an I2S audio input.
 - Raspberry Pi camera connected and detected by `rpicam-hello --list-cameras`.
-- Network connectivity from the Pi to the development machine running `tools.dev_ws_server`.
+- Network connectivity from the Pi to the development machine running the FastAPI backend.
 
 Install Pi system packages before running `setup_pi.sh`:
 
@@ -228,7 +246,7 @@ chmod +x setup_pi.sh
 ./setup_pi.sh
 ```
 
-Edit `.env` and set the WebSocket host to the IP address of the development machine running `tools.dev_ws_server`. Then start the Pi client:
+Edit `.env` and set `PI_WS_HOST` to the development machine IP and `PI_WS_PORT=3000` so the Pi connects to backend `WS /stream`. Then start the Pi client:
 
 ```bash
 ./run_pi.sh
@@ -244,7 +262,7 @@ PyCharm SFTP deployment is optional. Manual copy, `scp`, Git checkout, or rsync 
 | --- | --- | --- |
 | `DATABASE_URL` | `sqlite:///./data/experiment_platform.db` | SQLAlchemy database URL. |
 | `UPLOAD_DIR` | `./data/uploads` | Local artifact storage root. Must not be a filesystem root. |
-| `RAW_FRAME_DIR` | `./data/exercises` | Raw-frame JSON root used by `tools.process_exercise`. |
+| `RAW_FRAME_DIR` | `./data/exercises` | Raw-frame JSON root used by live recording and `tools.process_exercise`. |
 | `TESTING_MODE` | `false` | Marks isolated test runtime. |
 | `LOG_LEVEL` | `INFO` | Backend logging level. |
 | `PI_ADAPTER_MODE` | `noop` | Backend recording adapter mode. Only `noop` is currently supported. |
@@ -262,7 +280,7 @@ PyCharm SFTP deployment is optional. Manual copy, `scp`, Git checkout, or rsync 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PI_WS_HOST` | `192.168.0.182` | Development machine IP or hostname for the WebSocket receiver. |
-| `PI_WS_PORT` | `8080` | WebSocket receiver port. |
+| `PI_WS_PORT` | `3000` | Backend WebSocket receiver port for normal workflow. Use `8080` only with `tools.dev_ws_server`. |
 | `PI_WS_PATH` | `/stream` | WebSocket path. |
 | `PI_IMU_ENABLED` | `true` | Enable MPU6050 IMU frames. |
 | `PI_AUDIO_ENABLED` | `true` | Enable microphone RMS frames and WAV command handling. |
@@ -292,21 +310,7 @@ Use separate terminals from the repository root on the development machine.
 uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 3000
 ```
 
-### Terminal 2: Development WebSocket Receiver
-
-```bash
-python -m tools.dev_ws_server
-```
-
-Expected output includes:
-
-```text
-Development WebSocket server listening on ws://0.0.0.0:8080/stream
-Outbound Pi commands are disabled.
-frames/s imu=0 audio=0 camera=0
-```
-
-### Terminal 3: Streamlit Dashboard
+### Terminal 2: Streamlit Dashboard
 
 ```bash
 streamlit run frontend/app.py
@@ -328,30 +332,18 @@ The Pi must use the development machine LAN IP for `PI_WS_HOST`, not `0.0.0.0` a
 2. Confirm the dashboard reports a healthy backend.
 3. Create an experiment on the Experiments page.
 4. Create an exercise on the Exercises page.
-5. Copy the real exercise UUID shown by the dashboard.
-6. Start recording on the Recording page.
-7. Confirm Terminal 2 shows incoming Pi frame counts for IMU, audio, and/or camera.
-8. Stop recording on the Recording page.
-9. Process sample raw frames for the exercise:
+5. Open the Live Experiment page.
+6. Select the same experiment and exercise.
+7. Start recording.
+8. Confirm Pi connection status, frame rates, and latest sensor values update.
+9. Perform the exercise task.
+10. Stop recording and wait for automatic processing to finish.
+11. Open the Results page.
+12. Select the same experiment and exercise.
+13. Click **Fetch processed data**.
+14. Confirm charts, sample counts, aggregates, and extended analysis display.
 
-```bash
-python -m tools.process_exercise <exercise-id> --generate-sample
-```
-
-Replace `<exercise-id>` with the real exercise UUID, for example:
-
-```bash
-python -m tools.process_exercise 11111111-2222-3333-4444-555555555555 --generate-sample
-```
-
-Do not use the placeholder UUID unless such an exercise really exists in your database. If the UUID is wrong, the CLI reports that the exercise was not found.
-
-10. Open the Results page in Streamlit.
-11. Select the same experiment and exercise.
-12. Click **Fetch processed data**.
-13. Confirm charts, sample counts, and aggregate values display.
-
-Important: the `--generate-sample` command writes deterministic sample raw frames for the selected exercise. It does not process the live frames counted by `tools.dev_ws_server`. Automatic live-frame persistence is a future integration step.
+Fallback: `python -m tools.process_exercise <exercise-id> --generate-sample` is still available for debugging and sample-data generation. Replace `<exercise-id>` with a real exercise UUID; placeholder UUIDs fail with exercise-not-found errors.
 
 ## Verification URLs
 
@@ -383,20 +375,20 @@ Do not run `python frontend/app.py`. The frontend includes a small path bootstra
 
 ### WebSocket Connection Refused
 
-Start the development receiver first:
+Start the FastAPI backend first:
 
 ```bash
-python -m tools.dev_ws_server
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 3000
 ```
 
 Verify the Pi `.env` uses:
 
 ```dotenv
-PI_WS_PORT=8080
+PI_WS_PORT=3000
 PI_WS_PATH=/stream
 ```
 
-Check Windows Firewall and allow inbound TCP port `8080`.
+Check Windows Firewall and allow inbound TCP port `3000`. Use `PI_WS_PORT=8080` only when intentionally testing with `python -m tools.dev_ws_server`.
 
 ### Wrong Laptop IP
 
@@ -445,19 +437,19 @@ Create the exercise through Streamlit or the API first, then copy its actual UUI
 
 ### No Results in Streamlit
 
-`GET /exercises/{exerciseId}/data` returns data only after a `ProcessedResult` exists. Run:
+`GET /exercises/{exerciseId}/data` returns data only after stop completes automatic processing. If stop failed, raw data is retained under `RAW_FRAME_DIR/<exercise-id>/raw_frames.json`. You can retry with the fallback CLI:
 
 ```bash
-python -m tools.process_exercise <exercise-id> --generate-sample
+python -m tools.process_exercise <exercise-id>
 ```
 
 Then refresh the Results page and click **Fetch processed data**.
 
 ## Known Limitations
 
-- Live WebSocket frame persistence is not yet wired automatically to exercise IDs.
-- The processing CLI is currently separate from recording stop.
-- `tools.dev_ws_server` is a development receiver, not production deployment infrastructure.
+- Only one Pi and one active recording are supported.
+- Camera JPEG frames are used for throttled preview only and are not stored in raw JSON or SQLite.
+- `tools.dev_ws_server` is a diagnostic receiver, not the normal automatic workflow or production deployment infrastructure.
 - Foot speed is currently an acceleration-derived research placeholder, not validated physical speed.
 - No medical diagnosis, clinical scoring, or treatment recommendation is provided.
 - No authentication or multi-user authorization is implemented.

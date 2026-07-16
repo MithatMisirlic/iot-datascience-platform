@@ -1,6 +1,7 @@
 """Tests for deferred and fake processed-result orchestration."""
 
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -9,10 +10,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.app.integrations.processing import ProcessingArtifact
+from backend.app.models.exercise import Exercise
 from backend.app.models.processed_result import ProcessedResult
 from backend.app.models.sensor_upload import SensorUpload
 from backend.app.services import result_service
-from shared.enums import SensorFileType
+from shared.enums import RecordingStatus, SensorFileType
 from shared.errors import (
     InvalidProcessedResultError,
     MissingArtifactsError,
@@ -64,8 +66,13 @@ class InvalidResultProcessor(FakeResultProcessor):
         return {"unexpected": True}
 
 
-def create_exercise(client: TestClient, *, stop: bool = False) -> str:
-    """Create an exercise and optionally finish its recording."""
+def create_exercise(
+    client: TestClient,
+    database: Session | None = None,
+    *,
+    stop: bool = False,
+) -> str:
+    """Create an exercise and optionally prepare a stopped state directly."""
 
     experiment = client.post("/experiments", json={}).json()
     exercise = client.post(
@@ -74,8 +81,15 @@ def create_exercise(client: TestClient, *, stop: bool = False) -> str:
     ).json()
     exercise_id = exercise["id"]
     if stop:
-        client.post(f"/exercises/{exercise_id}/recording/start")
-        client.post(f"/exercises/{exercise_id}/recording/stop")
+        if database is None:
+            raise AssertionError("database session is required to mark stopped")
+        stored_exercise = database.get(Exercise, exercise_id)
+        assert stored_exercise is not None
+        stored_exercise.recordingStatus = RecordingStatus.STOPPED
+        stored_exercise.hasData = True
+        stored_exercise.recordingStartedAt = datetime.now(UTC)
+        stored_exercise.recordingEndedAt = datetime.now(UTC)
+        database.commit()
     return exercise_id
 
 
@@ -120,7 +134,7 @@ def test_processing_validates_exercise_state_and_required_uploads(
             processor,
         )
 
-    stopped_exercise_id = create_exercise(client, stop=True)
+    stopped_exercise_id = create_exercise(client, database_session, stop=True)
     with pytest.raises(MissingArtifactsError, match="Missing required artifacts"):
         result_service.process_exercise(
             database_session,
@@ -137,7 +151,7 @@ def test_deferred_processor_error_creates_no_result(
 ) -> None:
     """Raise the deferred error only after all processing inputs validate."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     add_required_uploads(database_session, exercise_id)
 
     with pytest.raises(OperationDeferredError, match="data pipeline"):
@@ -151,7 +165,7 @@ def test_fake_processor_persists_result_and_existing_api_mapping(
 ) -> None:
     """Persist valid fake output and retrieve it through the existing API."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     add_required_uploads(database_session, exercise_id)
     processor = FakeResultProcessor()
 
@@ -187,7 +201,7 @@ def test_processor_failure_or_invalid_output_creates_no_partial_result(
 ) -> None:
     """Keep persistence empty when processing or output validation fails."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     add_required_uploads(database_session, exercise_id)
 
     with pytest.raises(error_type):

@@ -1,6 +1,6 @@
 # Raspberry Pi WebSocket Client
 
-This directory is a self-contained Raspberry Pi deployment unit. It streams sensor frames to the development WebSocket receiver and does not import or access the REST backend, frontend, processing pipeline, or database.
+This directory is a self-contained Raspberry Pi deployment unit. It streams sensor frames to the backend WebSocket receiver and does not import or access backend database code, the frontend, or the processing pipeline.
 
 The client can stream:
 
@@ -17,12 +17,14 @@ ws://<PI_WS_HOST>:<PI_WS_PORT><PI_WS_PATH>
 Default:
 
 ```text
-ws://192.168.0.182:8080/stream
+ws://192.168.0.182:3000/stream
 ```
 
-## Current Development Limitation
+## Current Workflow
 
-The development server `tools.dev_ws_server` receives and counts live frames. It does not yet persist those live frames to an exercise-specific `raw_frames.json` file. Backend results are currently created by running `tools.process_exercise` against stored or generated raw frames.
+During normal development, the Pi connects to the FastAPI backend `WS /stream` endpoint. The backend associates incoming frames with the active exercise after the user starts recording in Streamlit, persists numeric raw frames on stop, runs processing automatically, and stores `ProcessedResult` data for the dashboard.
+
+The diagnostic server `tools.dev_ws_server` is still available for low-level frame counting, but it does not persist frames or trigger processing.
 
 ## Deployment Scope
 
@@ -97,7 +99,7 @@ python -m pi_client.main
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PI_WS_HOST` | `192.168.0.182` | Development machine IP or hostname for the WebSocket receiver. |
-| `PI_WS_PORT` | `8080` | WebSocket receiver port. |
+| `PI_WS_PORT` | `3000` | FastAPI backend WebSocket receiver port for the normal workflow. Use `8080` only with `tools.dev_ws_server`. |
 | `PI_WS_PATH` | `/stream` | WebSocket endpoint path. |
 | `PI_IMU_ENABLED` | `true` | Enable MPU6050 IMU frames. |
 | `PI_AUDIO_ENABLED` | `true` | Enable audio RMS frames and WAV commands. |
@@ -119,25 +121,27 @@ All local paths should be relative to the Pi deployment directory.
 
 ## Development Run Order
 
-On the development machine, start the WebSocket receiver:
+On the development machine, start the FastAPI backend:
 
 ```bash
-python -m tools.dev_ws_server
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 3000
 ```
 
-On the Pi, set `PI_WS_HOST` in `.env` to the development machine LAN IP. Then run:
+On the Pi, set `PI_WS_HOST` in `.env` to the development machine LAN IP and keep `PI_WS_PORT=3000`. Then run:
 
 ```bash
 ./run_pi.sh
 ```
 
-The development receiver should print frame counts once per second:
+Open the Streamlit Live Experiment page to view Pi connection status, frame counts, estimated frame rates, latest sensor values, and optional camera preview. Counts depend on enabled sensors and hardware performance.
 
-```text
-frames/s imu=60 audio=60 camera=5
+Optional diagnostic-only receiver:
+
+```bash
+python -m tools.dev_ws_server
 ```
 
-Counts depend on enabled sensors and hardware performance.
+When using the diagnostic receiver, set `PI_WS_PORT=8080`. This mode counts frames only; it does not associate frames with exercises, persist raw data, or process results.
 
 ## Testing Without Hardware
 
@@ -251,21 +255,21 @@ A Python module run configuration can use `pi_client.main`, but then you must pr
 
 ### WebSocket Reconnect Loop
 
-Verify the development receiver is running:
+Verify the FastAPI backend is running on the development machine:
 
 ```bash
-python -m tools.dev_ws_server
+uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 3000
 ```
 
 Check `.env` on the Pi:
 
 ```dotenv
 PI_WS_HOST=<development-machine-lan-ip>
-PI_WS_PORT=8080
+PI_WS_PORT=3000
 PI_WS_PATH=/stream
 ```
 
-Do not use `PI_WS_HOST=0.0.0.0` on the Pi. Check firewall rules on the development machine.
+Do not use `PI_WS_HOST=0.0.0.0` on the Pi. Check firewall rules on the development machine. Use `PI_WS_PORT=8080` only when intentionally testing with `tools.dev_ws_server`.
 
 ### Wrong Laptop IP
 

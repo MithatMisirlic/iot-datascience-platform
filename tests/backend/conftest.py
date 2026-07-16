@@ -31,6 +31,7 @@ from sqlalchemy.pool import StaticPool
 from backend.app.db.base import Base
 from backend.app.dependencies import get_db
 from backend.app.main import app
+from backend.app.services.live_recording_session import live_recording_manager
 import backend.app.models  # noqa: F401
 
 
@@ -77,10 +78,12 @@ def client() -> Generator[TestClient, None, None]:
 
     Base.metadata.drop_all(bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
+    live_recording_manager.reset()
     app.dependency_overrides[get_db] = override_database
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+    live_recording_manager.reset()
     Base.metadata.drop_all(bind=test_engine)
 
 

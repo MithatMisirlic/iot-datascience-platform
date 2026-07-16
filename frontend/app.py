@@ -14,13 +14,21 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 
 from frontend.api_client import ExperimentApiClient
 from frontend.config import get_settings
-from frontend.pages import dashboard, exercises, experiments, recording, results
+from frontend.pages import (
+    dashboard,
+    exercises,
+    experiments,
+    live_experiment,
+    recording,
+    results,
+)
 
 
 PAGES = {
     "Dashboard": dashboard.render,
     "Experiments": experiments.render,
     "Exercises": exercises.render,
+    "Live Experiment": live_experiment.render,
     "Recording": recording.render,
     "Results": results.render,
 }
@@ -35,6 +43,7 @@ def main() -> None:
         layout="wide",
         initial_sidebar_state="expanded",
     )
+    _apply_theme()
 
     st.sidebar.title("Experiment Platform")
     st.sidebar.caption("Backend-driven research workflow dashboard")
@@ -56,6 +65,30 @@ def main() -> None:
         PAGES[page_name](api, base_url)
     finally:
         api.close()
+
+
+def _apply_theme() -> None:
+    """Apply a restrained research-dashboard visual theme."""
+
+    st.markdown(
+        """
+        <style>
+        .block-container {padding-top: 2rem; padding-bottom: 3rem;}
+        [data-testid="stMetric"] {
+            background: #f7f9fb;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.9rem;
+            padding: 0.85rem;
+        }
+        [data-testid="stMetricLabel"] {color: #334155;}
+        div[data-testid="stExpander"] {
+            border: 1px solid #e2e8f0;
+            border-radius: 0.8rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":

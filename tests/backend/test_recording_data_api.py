@@ -44,6 +44,20 @@ def add_internal_data(
     database.commit()
 
 
+def add_internal_upload(database: Session, exercise_id: str) -> None:
+    """Insert one internal upload row without adding a processed result."""
+
+    database.add(
+        SensorUpload(
+            exercise_id=exercise_id,
+            file_type=SensorFileType.ACCEL,
+            original_filename="accel.csv",
+            file_path="recordings/accel.csv",
+        )
+    )
+    database.commit()
+
+
 def create_exercise(client: TestClient) -> tuple[str, str]:
     """Create an experiment and exercise for a lifecycle test."""
 
@@ -128,10 +142,8 @@ def test_get_data_requires_recording_and_processed_result(client: TestClient) ->
     client.post(f"/exercises/{exercise_id}/recording/start")
     client.post(f"/exercises/{exercise_id}/recording/stop")
     response = client.get(f"/exercises/{exercise_id}/data")
-    assert response.status_code == 404
-    assert response.json() == {
-        "error": "Processed exercise data is not available."
-    }
+    assert response.status_code == 200
+    assert response.json()["mouthOpening"]["values"] == []
 
     response = client.get("/exercises/missing/data")
     assert response.status_code == 404
@@ -151,8 +163,6 @@ def test_get_and_clear_exercise_data(
     _, exercise_id = create_exercise(client)
     start = client.post(f"/exercises/{exercise_id}/recording/start").json()
     stopped = client.post(f"/exercises/{exercise_id}/recording/stop").json()
-    features = processed_features()
-    add_internal_data(database_session, exercise_id, features)
 
     response = client.get(f"/exercises/{exercise_id}/data")
     assert response.status_code == 200
@@ -160,10 +170,13 @@ def test_get_and_clear_exercise_data(
     assert data["exerciseId"] == exercise_id
     assert data["startedAt"] == start["recordingStartedAt"]
     assert data["endedAt"] == stopped["recordingEndedAt"]
-    assert data["mouthOpening"] == features["mouthOpening"]
-    assert data["soundPressure"] == features["soundPressure"]
-    assert data["footSpeed"] == features["footSpeed"]
-    assert data["aggregates"] == features["aggregates"]
+    assert data["mouthOpening"] == {"values": [], "sampleRate": 0.0}
+    assert data["soundPressure"] == {"values": [], "sampleRate": 0.0}
+    assert data["footSpeed"] == {
+        "values": [],
+        "sampleRate": 0.0,
+        "unit": "cm/s",
+    }
     assert_utc_timestamp(data["startedAt"])
     assert_utc_timestamp(data["endedAt"])
 
@@ -205,7 +218,7 @@ def test_delete_exercise_cascades_internal_data(
     _, exercise_id = create_exercise(client)
     client.post(f"/exercises/{exercise_id}/recording/start")
     client.post(f"/exercises/{exercise_id}/recording/stop")
-    add_internal_data(database_session, exercise_id)
+    add_internal_upload(database_session, exercise_id)
 
     response = client.delete(f"/exercises/{exercise_id}")
     assert response.status_code == 204

@@ -11,6 +11,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from backend.app.api.live import router as live_router
 from backend.app.api.v1.router import api_router
 from backend.app.core.config import settings
 from backend.app.core.logging import configure_logging
@@ -90,6 +91,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(live_router)
 
 
 @app.exception_handler(ResourceNotFoundError)

@@ -1,6 +1,7 @@
 """Tests for internal recording-artifact storage scaffolding."""
 
 from io import BytesIO
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -11,10 +12,11 @@ from sqlalchemy.orm import Session
 from backend.app.dependencies import get_artifact_storage
 from backend.app.integrations.uploads import LocalArtifactStorage
 from backend.app.main import app
+from backend.app.models.exercise import Exercise
 from backend.app.models.processed_result import ProcessedResult
 from backend.app.models.sensor_upload import SensorUpload
 from backend.app.services import upload_service
-from shared.enums import SensorFileType
+from shared.enums import RecordingStatus, SensorFileType
 from shared.errors import (
     InvalidArtifactError,
     OperationDeferredError,
@@ -34,8 +36,13 @@ def storage(client: TestClient, tmp_path: Path) -> LocalArtifactStorage:
     return local_storage
 
 
-def create_exercise(client: TestClient, *, stop: bool = False) -> str:
-    """Create an exercise and optionally complete its recording lifecycle."""
+def create_exercise(
+    client: TestClient,
+    database: Session | None = None,
+    *,
+    stop: bool = False,
+) -> str:
+    """Create an exercise and optionally prepare a stopped state directly."""
 
     experiment = client.post("/experiments", json={}).json()
     exercise = client.post(
@@ -44,8 +51,15 @@ def create_exercise(client: TestClient, *, stop: bool = False) -> str:
     ).json()
     exercise_id = exercise["id"]
     if stop:
-        client.post(f"/exercises/{exercise_id}/recording/start")
-        client.post(f"/exercises/{exercise_id}/recording/stop")
+        if database is None:
+            raise AssertionError("database session is required to mark stopped")
+        stored_exercise = database.get(Exercise, exercise_id)
+        assert stored_exercise is not None
+        stored_exercise.recordingStatus = RecordingStatus.STOPPED
+        stored_exercise.hasData = True
+        stored_exercise.recordingStartedAt = datetime.now(UTC)
+        stored_exercise.recordingEndedAt = datetime.now(UTC)
+        database.commit()
     return exercise_id
 
 
@@ -74,7 +88,7 @@ def test_successful_artifact_storage_and_metadata_persistence(
 ) -> None:
     """Store bytes locally and persist matching internal metadata."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     upload = upload_artifact(database_session, storage, exercise_id)
 
     stored_path = storage.root / upload.file_path
@@ -106,7 +120,7 @@ def test_upload_validates_exercise_state_type_and_content(
     with pytest.raises(ResourceConflictError, match="recording has stopped"):
         upload_artifact(database_session, storage, idle_exercise_id)
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     with pytest.raises(UnsupportedArtifactError, match="not supported"):
         upload_service.receive_sensor_upload(
             database_session,
@@ -135,7 +149,7 @@ def test_default_upload_receiver_remains_deferred(
 ) -> None:
     """Keep transport/storage integration explicit when no adapter is supplied."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     with pytest.raises(OperationDeferredError, match="Pi upload flow"):
         upload_service.receive_sensor_upload(
             database_session,
@@ -153,7 +167,7 @@ def test_exercise_delete_cleans_file_and_metadata(
 ) -> None:
     """Remove local artifacts when their parent exercise is deleted."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     upload = upload_artifact(database_session, storage, exercise_id)
     upload_id = upload.id
     stored_path = storage.root / upload.file_path
@@ -173,7 +187,7 @@ def test_clear_data_cleans_file_and_preserves_exercise(
 ) -> None:
     """Remove artifacts through data cleanup while retaining the exercise."""
 
-    exercise_id = create_exercise(client, stop=True)
+    exercise_id = create_exercise(client, database_session, stop=True)
     upload = upload_artifact(database_session, storage, exercise_id)
     stored_path = storage.root / upload.file_path
 
