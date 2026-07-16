@@ -1,0 +1,24 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f8fafc"/>
+  <rect x="36" y="30" width="1128" height="700" rx="24" fill="#ffffff" stroke="#dbe4ee"/>
+  <text x="70" y="78" font-family="Segoe UI, Arial" font-size="34" font-weight="700" fill="#102033">Results</text>
+  <text x="70" y="112" font-family="Segoe UI, Arial" font-size="16" fill="#64748b">Processed research features, charts, report and exports.</text>
+  <g fill="#f7f9fb" stroke="#e2e8f0">
+    <rect x="70" y="150" width="250" height="92" rx="16"/><rect x="340" y="150" width="250" height="92" rx="16"/><rect x="610" y="150" width="250" height="92" rx="16"/><rect x="880" y="150" width="220" height="92" rx="16"/>
+  </g>
+  <g font-family="Segoe UI, Arial" fill="#334155">
+    <text x="92" y="182" font-size="14">Experiment duration</text><text x="92" y="216" font-size="24" font-weight="700">18.4s</text>
+    <text x="362" y="182" font-size="14">Mouth frames</text><text x="362" y="216" font-size="24" font-weight="700">90</text>
+    <text x="632" y="182" font-size="14">Audio frames</text><text x="632" y="216" font-size="24" font-weight="700">1080</text>
+    <text x="902" y="182" font-size="14">Movement frames</text><text x="902" y="216" font-size="24" font-weight="700">1080</text>
+  </g>
+  <g font-family="Segoe UI, Arial" font-size="16" font-weight="700">
+    <rect x="70" y="280" width="160" height="48" rx="12" fill="#e8f5ee"/><text x="116" y="310" fill="#167a3a">Speech</text>
+    <rect x="250" y="280" width="160" height="48" rx="12" fill="#eef5ff"/><text x="295" y="310" fill="#1d4ed8">Movement</text>
+    <rect x="430" y="280" width="160" height="48" rx="12" fill="#eef5ff"/><text x="485" y="310" fill="#1d4ed8">Vision</text>
+    <rect x="610" y="280" width="160" height="48" rx="12" fill="#eef5ff"/><text x="660" y="310" fill="#1d4ed8">Overall</text>
+  </g>
+  <rect x="70" y="360" width="510" height="180" rx="16" fill="#ffffff" stroke="#dbe4ee"/><text x="95" y="398" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#102033">Rolling SPL / MFCC Summary</text><polyline points="100,500 150,470 200,488 250,430 300,465 350,420 400,452 450,410 520,448" fill="none" stroke="#2563eb" stroke-width="4"/>
+  <rect x="610" y="360" width="490" height="180" rx="16" fill="#ffffff" stroke="#dbe4ee"/><text x="635" y="398" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#102033">Completeness and Synchronization</text><rect x="660" y="455" width="80" height="65" fill="#167a3a"/><rect x="780" y="430" width="80" height="90" fill="#f59e0b"/><rect x="900" y="482" width="80" height="38" fill="#dc2626"/>
+  <rect x="70" y="585" width="1030" height="95" rx="16" fill="#f7f9fb" stroke="#e2e8f0"/><text x="95" y="622" font-family="Segoe UI, Arial" font-size="20" font-weight="700" fill="#102033">Research Summary</text><text x="95" y="652" font-family="Segoe UI, Arial" font-size="15" fill="#64748b">Descriptive report, JSON export, Markdown export and optional CSV series export.</text>
+</svg>

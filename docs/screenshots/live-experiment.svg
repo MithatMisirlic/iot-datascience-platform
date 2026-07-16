@@ -1,0 +1,31 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f8fafc"/>
+  <rect x="36" y="30" width="1128" height="700" rx="24" fill="#ffffff" stroke="#dbe4ee"/>
+  <text x="70" y="78" font-family="Segoe UI, Arial" font-size="34" font-weight="700" fill="#102033">Live Experiment</text>
+  <text x="70" y="112" font-family="Segoe UI, Arial" font-size="16" fill="#64748b">Guided recording workflow for one exercise and one connected Raspberry Pi.</text>
+  <text x="70" y="158" font-family="Segoe UI, Arial" font-size="22" font-weight="700" fill="#102033">Experiment Summary</text>
+  <g font-family="Segoe UI, Arial" font-size="15" font-weight="700">
+    <rect x="70" y="182" width="210" height="54" rx="24" fill="#e8f5ee"/><text x="96" y="216" fill="#167a3a">Pi: connected</text>
+    <rect x="300" y="182" width="210" height="54" rx="24" fill="#fff4db"/><text x="326" y="216" fill="#8a5a00">Recording: stopped</text>
+    <rect x="530" y="182" width="240" height="54" rx="24" fill="#e8f5ee"/><text x="556" y="216" fill="#167a3a">Processing: results_ready</text>
+    <rect x="790" y="182" width="210" height="54" rx="24" fill="#f7f9fb" stroke="#e2e8f0"/><text x="818" y="216" fill="#334155">Duration: 18.4s</text>
+  </g>
+  <g fill="#f7f9fb" stroke="#e2e8f0">
+    <rect x="70" y="260" width="250" height="92" rx="16"/><rect x="340" y="260" width="250" height="92" rx="16"/><rect x="610" y="260" width="250" height="92" rx="16"/><rect x="880" y="260" width="220" height="92" rx="16"/>
+  </g>
+  <g font-family="Segoe UI, Arial" fill="#334155">
+    <text x="92" y="292" font-size="14">Experiment</text><text x="92" y="326" font-size="24" font-weight="700">P-001</text>
+    <text x="362" y="292" font-size="14">Exercise</text><text x="362" y="326" font-size="24" font-weight="700">average_steps</text>
+    <text x="632" y="292" font-size="14">Has data</text><text x="632" y="326" font-size="24" font-weight="700">yes</text>
+    <text x="902" y="292" font-size="14">Timestamp</text><text x="902" y="326" font-size="24" font-weight="700">14:32:08</text>
+  </g>
+  <text x="70" y="405" font-family="Segoe UI, Arial" font-size="22" font-weight="700" fill="#102033">Live Monitoring</text>
+  <g font-family="Segoe UI, Arial" font-size="15" font-weight="700">
+    <rect x="70" y="430" width="240" height="68" rx="18" fill="#e8f5ee"/><text x="96" y="462" fill="#167a3a">IMU: healthy</text><text x="96" y="484" fill="#64748b" font-size="13">60.0 Hz | 1080 frames</text>
+    <rect x="330" y="430" width="240" height="68" rx="18" fill="#e8f5ee"/><text x="356" y="462" fill="#167a3a">AUDIO: healthy</text><text x="356" y="484" fill="#64748b" font-size="13">60.0 Hz | 1080 frames</text>
+    <rect x="590" y="430" width="240" height="68" rx="18" fill="#fff4db"/><text x="616" y="462" fill="#8a5a00">CAMERA: waiting</text><text x="616" y="484" fill="#64748b" font-size="13">3.8 FPS | preview only</text>
+    <rect x="850" y="430" width="250" height="68" rx="18" fill="#fff4db"/><text x="876" y="462" fill="#8a5a00">MOUTH: waiting</text><text x="876" y="484" fill="#64748b" font-size="13">0.0 Hz | optional</text>
+  </g>
+  <rect x="70" y="535" width="460" height="145" rx="16" fill="#eef5ff" stroke="#dbeafe"/><text x="94" y="570" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#102033">Camera Preview</text><rect x="94" y="592" width="160" height="88" fill="#cbd5e1"/><text x="280" y="636" font-family="Segoe UI, Arial" font-size="16" fill="#64748b">Throttled preview, not persisted</text>
+  <rect x="560" y="535" width="540" height="145" rx="16" fill="#ffffff" stroke="#dbe4ee"/><polyline points="590,650 640,630 690,638 740,600 790,622 840,590 890,612 940,580 990,610 1040,575" fill="none" stroke="#2563eb" stroke-width="4"/><text x="584" y="570" font-family="Segoe UI, Arial" font-size="18" font-weight="700" fill="#102033">Rolling Audio / IMU Charts</text>
+</svg>

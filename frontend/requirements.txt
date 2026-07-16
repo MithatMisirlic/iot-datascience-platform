@@ -1,0 +1,6 @@
+streamlit>=1.37,<2.0
+httpx>=0.27,<1.0
+pandas>=2.2,<3.0
+matplotlib>=3.8,<4.0
+plotly>=5.24,<7.0
+websockets>=14.2,<17.0
