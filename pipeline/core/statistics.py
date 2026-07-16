@@ -46,3 +46,15 @@ def population_std(values: Sequence[float]) -> float:
     """Return population standard deviation, using zero when unavailable."""
     return statistics.pstdev(values) if len(values) > 1 else 0.0
 
+
+def population_variance(values: Sequence[float]) -> float:
+    """Return population variance, using zero when unavailable."""
+    return statistics.pvariance(values) if len(values) > 1 else 0.0
+
+
+def coefficient_of_variation(values: Sequence[float]) -> float:
+    """Return std/mean, using zero for empty or zero-mean series."""
+    average = mean(values)
+    if average == 0.0:
+        return 0.0
+    return population_std(values) / abs(average)

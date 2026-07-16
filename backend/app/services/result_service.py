@@ -79,4 +79,6 @@ def process_exercise(
         exclude={"exerciseId", "startedAt", "endedAt"},
         exclude_unset=True,
     )
+    if isinstance(output.get("metadata"), dict):
+        features["metadata"] = output["metadata"]
     return result_crud.create_exercise_result(database, exercise_id, features)

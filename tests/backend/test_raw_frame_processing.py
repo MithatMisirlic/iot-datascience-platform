@@ -60,9 +60,19 @@ def test_processing_persists_result_and_existing_get_returns_it(
     )
     exercise = database_session.get(Exercise, exercise_id)
     assert stored is not None
-    assert stored.features == {
+    public_features = {
         key: output[key]
         for key in ("mouthOpening", "soundPressure", "footSpeed", "aggregates")
+    }
+    assert {
+        key: stored.features[key]
+        for key in ("mouthOpening", "soundPressure", "footSpeed", "aggregates")
+    } == public_features
+    assert set(stored.features["metadata"]["analysis"]) == {
+        "audio",
+        "movement",
+        "vision",
+        "overall",
     }
     assert exercise is not None
     assert exercise.hasData is True
@@ -70,7 +80,19 @@ def test_processing_persists_result_and_existing_get_returns_it(
 
     response = client.get(f"/exercises/{exercise_id}/data")
     assert response.status_code == 200
-    assert response.json() == output
+    assert response.json() == {
+        key: output[key]
+        for key in (
+            "exerciseId",
+            "startedAt",
+            "endedAt",
+            "mouthOpening",
+            "soundPressure",
+            "footSpeed",
+            "aggregates",
+        )
+        if key in output
+    }
 
 
 def test_processing_missing_exercise_raises_clear_error(
@@ -109,4 +131,22 @@ def test_processing_empty_raw_data_is_deterministic_and_valid(
         "values": [],
         "unit": "cm",
     }
-    assert client.get(f"/exercises/{exercise_id}/data").json() == output
+    assert output["metadata"]["analysis"]["overall"]["completeness"] == {
+        "imu": 0.0,
+        "audio": 0.0,
+        "vision": 0.0,
+    }
+    public_output = {
+        key: output[key]
+        for key in (
+            "exerciseId",
+            "startedAt",
+            "endedAt",
+            "mouthOpening",
+            "soundPressure",
+            "footSpeed",
+            "aggregates",
+        )
+        if key in output
+    }
+    assert client.get(f"/exercises/{exercise_id}/data").json() == public_output

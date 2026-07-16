@@ -22,6 +22,7 @@ class ProcessingResult:
     mouth_opening: tuple[tuple[float, float], ...]
     sound_pressure: tuple[float, ...]
     foot_speed_proxy: tuple[float, ...]
+    report: Mapping[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-compatible generic feature dictionary."""
@@ -34,6 +35,7 @@ class ProcessingResult:
                 "sound_pressure": list(self.sound_pressure),
                 "foot_speed_proxy": list(self.foot_speed_proxy),
             },
+            "report": dict(self.report),
         }
 
 
@@ -51,6 +53,8 @@ def to_exercise_data(processed: Mapping[str, Any]) -> dict[str, Any]:
     The foot-speed values are acceleration-magnitude proxies scaled for an
     early research workflow. They are not physical speed measurements,
     medical predictions, diagnostic outputs, or validated clinical features.
+    Extended analysis is placed under `metadata`; FastAPI response-model
+    filtering keeps the public ExerciseData contract backward-compatible.
     """
     imu = processed["imu"]
     audio = processed["audio"]
@@ -110,5 +114,7 @@ def to_exercise_data(processed: Mapping[str, Any]) -> dict[str, Any]:
             "averages": averages,
             "medians": medians,
         },
+        "metadata": {
+            "analysis": processed.get("report", {}),
+        },
     }
-

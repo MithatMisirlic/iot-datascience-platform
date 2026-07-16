@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
 from typing import Any
 
 import pandas as pd
 import streamlit as st
+
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
 
 from frontend.api_client import ApiClientError, ExperimentApiClient
 from frontend.components.forms import (

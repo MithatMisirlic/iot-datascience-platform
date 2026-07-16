@@ -53,6 +53,8 @@ def process_raw_exercise(
         exclude={"exerciseId", "startedAt", "endedAt"},
         exclude_unset=True,
     )
+    if isinstance(output.get("metadata"), dict):
+        features["metadata"] = output["metadata"]
     try:
         result = result_crud.stage_exercise_result(
             database,
@@ -66,5 +68,7 @@ def process_raw_exercise(
         database.rollback()
         raise
 
-    return contract_result.model_dump(mode="json", exclude_unset=True)
-
+    response = contract_result.model_dump(mode="json", exclude_unset=True)
+    if isinstance(output.get("metadata"), dict):
+        response["metadata"] = output["metadata"]
+    return response
